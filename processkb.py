@@ -1,7 +1,9 @@
+import logging; logger = logging.getLogger("minimalKB."+__name__);
+
 from multiprocessing import Process
 
-#from services.reasoner import start_reasoner, stop_reasoner
-#from services.thought import start_thought, stop_thought
+from reasoner import reasoner_start, reasoner_stop
+from thought import thought_start, thought_stop
 
 import kb
 #import conflictFinder
@@ -104,12 +106,12 @@ class processKB:
 
     # SUB methods :
     #--------------------------------------------------
-    def sub(self, stmts, models=None, likelihood=None):
+    def sub(self, stmts, models=None, unlikelihood=None):
 
-        if likelihood:
+        if unlikelihood:
             if models:
                 for model in models:
-                    self.kb.sub(stmts, model, likelihood)
+                    self.kb.sub(stmts, model, unlikelihood)
             else:
                 self.kb.sub(stmts, DEFAULT_MODEL)
         else:
@@ -123,21 +125,34 @@ class processKB:
 
     # SERVICES methods
     #-----------------------------------------
-    '''
     def start_services(self, *args):
 
-        self._reasoner = Process(target = start_reasoner, args = ('kb.db',))
+        self._reasoner = Process(target = start_reasoner)
         self._reasoner.start()
 
-        #self._thought = Process(target = start_thought, args = ('kb.db',))
-        #self._thought.start()
+        self._thought = Process(target = start_thought, args = ('kb.db',))
+        self._thought.start()
 
     def stop_services(self):
         self._reasoner.terminate()
-        #self._thought.terminate()
+        self._thought.terminate()
 
         self._reasoner.join()
-        #self._thought.join()
+        self._thought.join()
+        
+    # CLIENT FOR THOUGHT methods
+    #-------------------------------------------
+    def client_thougth(self)
+        s = socket.socket()         
+        host = socket.gethostname() 
+        port = 12345    # <-- has to be the same than thought
+
+        s.connect((host, port))
+
+        s.send('''message''')
+
+        '''process'''s.recv(1024)
+        s.close 
 
 
 

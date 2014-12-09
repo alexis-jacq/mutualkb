@@ -1,3 +1,6 @@
+import logging; logger = logging.getLogger("minimalKB."+__name__);
+DEBUG_LEVEL=logging.DEBUG
+
 import sqlite3
 import Queue
 
@@ -5,6 +8,7 @@ from processkb import DEFAULT_MODEL
 from kb import TABLENAME, KBNAME
 
 REASONER_RATE = 5 #Hz
+END = False
 
 # add M operator et K operator
 
@@ -190,7 +194,7 @@ class reasoner():
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent')) 
                     AND object in 
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
-                    AND predicate="canSee" 
+                    AND predicate="knows" 
                     ''' % (TABLENAME, TABLENAME, TABLENAME))}
             selfknowledges = {(row[0], row[1]) for row in db.execute(
                     '''SELECT subject, model FROM %s WHERE subject!='self' AND subject in 
@@ -289,7 +293,7 @@ class reasoner():
 
 
     # UPDATE methods
-    #-----------------------
+    # --------------
 
     def copydb(self):
     
@@ -316,12 +320,36 @@ class reasoner():
                  (subject, predicate, object, model, agent, id, topic)
                  VALUES (?, ?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
             self.shareddb.commit()
+            
+    # LAUNCH methods
+    # --------------
+
+    def __call__(self, *args)
+        try:
+            while self.running:
+                time.sleep(1./REASONER_RATE)
+                self.classify()
+                reason.update_models()
+        except KeyboardInterrupt:
+            return
+            
+reason = None
 
 def reasoner_start():
-    pass
+    global reason
+
+    if not reason:
+        reason = reasoner()
+    reason.running = True
+    reason()
+    
+    
 
 def reasoner_stop():
-    pass
+    global reason
+    
+    if reason:
+        reason.running = False
 
 
 # TESTING
