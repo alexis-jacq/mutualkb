@@ -1,14 +1,15 @@
-import logging; logger = logging.getLogger("minimalKB."+__name__);
+import logging; logger = logging.getLogger('mylog');
 DEBUG_LEVEL=logging.DEBUG
 
 import sqlite3
-import Queue
+import time
 
-from processkb import DEFAULT_MODEL
+#from processkb import DEFAULT_MODEL
 from kb import TABLENAME, KBNAME
 
-REASONER_RATE = 5 #Hz
+REASONER_RATE = 2 #Hz
 END = False
+DEFAULT_MODEL = 'K_myself'
 
 # add M operator et K operator
 
@@ -28,6 +29,7 @@ class reasoner():
     def __init__(self, database = KBNAME):
         self.db = sqlite3.connect(':memory:')
         self.shareddb = sqlite3.connect(database)
+        
 
         query = None
         for line in self.shareddb.iterdump():
@@ -199,7 +201,8 @@ class reasoner():
             selfknowledges = {(row[0], row[1]) for row in db.execute(
                     '''SELECT subject, model FROM %s WHERE subject!='self' AND subject in 
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent')) 
-                    ''' % (TABLENAME, TABLENAME))}
+                    AND model='%s'
+                    ''' % (TABLENAME, TABLENAME, DEFAULT_MODEL))}
         
         return visualknowledges, selfknowledges
 
@@ -324,12 +327,22 @@ class reasoner():
     # LAUNCH methods
     # --------------
 
-    def __call__(self, *args)
+    def __call__(self, *args):
         try:
+            logger.info('reasonner starts')
             while self.running:
                 time.sleep(1./REASONER_RATE)
+                
+                while True:
+                    try:
+                        self.shareddb.execute('''SELECT * FROM %s''' % TABLENAME)
+                        break
+                    except sqlite3.OperationalError:
+                        pass
+                        
                 self.classify()
                 reason.update_models()
+                print('--------------------reasoning done')
         except KeyboardInterrupt:
             return
             
@@ -352,6 +365,7 @@ def reasoner_stop():
         reason.running = False
 
 
+'''
 # TESTING
 #-----------------------
 
@@ -361,6 +375,6 @@ if __name__=='__main__':
     reason.classify()
     reason.update_models()
     reason.shareddb.close()
-    reason.db.close()
+    reason.db.close()'''
 
 
