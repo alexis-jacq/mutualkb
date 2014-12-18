@@ -12,8 +12,8 @@ import numpy
 import sqlite3
 import Queue
 
-#from processkb import DEFAULT_MODEL
-from kb import TABLENAME, KBNAME
+from kb import KBNAME, TABLENAME
+import kb
 
 
 requests = Queue.Queue()

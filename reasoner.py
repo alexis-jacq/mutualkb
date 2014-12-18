@@ -3,9 +3,8 @@ DEBUG_LEVEL=logging.DEBUG
 
 import sqlite3
 import time
-
-#from processkb import DEFAULT_MODEL
-from kb import TABLENAME, KBNAME
+from kb import KBNAME, TABLENAME
+import kb
 
 REASONER_RATE = 2 #Hz
 END = False
@@ -24,7 +23,7 @@ class OntoClass():
 
 class reasoner():
 
-    SYMMETRIC_PREDICATES = {"owl:differentFrom", "owl:sameAs", "owl:disjointWith"}
+    SYMMETRIC_PREDICATES = {"owl:differentFrom", "owl:sameAs", "owl:disjointWith",'owl:equivalentClass'}
 
     def __init__(self, database = KBNAME):
         self.db = sqlite3.connect(':memory:')
@@ -56,34 +55,34 @@ class reasoner():
         subclassof = None
         equivalentclasses = None
         with db:
-            rdftype = {(row[0], row[1]) for row in db.execute(
-                    '''SELECT subject, object FROM %s 
+            rdftype = {(row[0], row[1], row[2]) for row in db.execute(
+                    '''SELECT subject, object, likelihood FROM %s 
                        WHERE (predicate='rdf:type' AND model=? AND topic='general')
                     ''' % TABLENAME, [model])}
-            subclassof = {(row[0], row[1]) for row in db.execute(
-                    '''SELECT subject, object FROM %s 
+            subclassof = {(row[0], row[1], row[2]) for row in db.execute(
+                    '''SELECT subject, object, likelihood FROM %s 
                        WHERE (predicate='rdfs:subClassOf' AND model=? AND topic='general')
                     ''' % TABLENAME, [model])}
-            equivalentclasses = {(row[0], row[1]) for row in db.execute(
-                    '''SELECT subject, object FROM %s 
+            equivalentclasses = {(row[0], row[1], row[2]) for row in db.execute(
+                    '''SELECT subject, object, likelihood FROM %s 
                        WHERE (predicate='owl:equivalentClass' AND model=? AND topic='general')
                     ''' % TABLENAME, [model])}
 
 
-        for cc, cp in subclassof:
+        for cc, cp, llh in subclassof:
             parent = onto.setdefault(cp, OntoClass(cp))
             child = onto.setdefault(cc, OntoClass(cc))
-            child.parents.add(parent)
-            parent.children.add(child)
+            child.parents.add((parent,llh))
+            parent.children.add((child,llh))
 
-        for i, c in rdftype:
-            onto.setdefault(c, OntoClass(c)).instances.add(i)
+        for i, c, llh in rdftype:
+            onto.setdefault(c, OntoClass(c)).instances.add((i,llh))
 
-        for ec1, ec2 in equivalentclasses:
+        for ec1, ec2, llh in equivalentclasses:
             equi1 = onto.setdefault(ec1, OntoClass(ec1))
             equi2 = onto.setdefault(ec2, OntoClass(ec2))
-            equi1.equivalents.add(equi2)
-            equi2.equivalents.add(equi1)
+            equi1.equivalents.add((equi2,llh))
+            equi2.equivalents.add((equi1,llh))
 
 
         return onto, rdftype, subclassof, equivalentclasses
@@ -92,77 +91,94 @@ class reasoner():
 
         onto, rdftype, subclassof, equivalentclasses = self.get_onto(self.db, model)
 
-        newrdftype = set()
-        newsubclassof = set()
-        newequivalentclasses=set()
+        newrdftype = []
+        newsubclassof = []
+        newequivalentclasses=[]
         
-        def addinstance(instance, cls):
-            newrdftype.add((instance, cls.name))
-            for p in cls.parents:
-                addinstance(instance, p)
+        def addinstance(instance, cls, llh):
+            newrdftype.append((instance, cls.name, llh))
+            for p, llh2 in cls.parents:
+                llh3 = max(0.5,min(llh,llh2))
+                addinstance(instance, p, llh3)
 
-        def addoverclassof(cls, ocls):
-            newsubclassof.add((cls.name, ocls.name))
-            ocls.children.add(cls)
-            cls.parents.add(ocls)
-            for c in frozenset(cls.children):
-                addoverclassof(c, cls)
+        def addoverclassof(cls, ocls, llh):
+            newsubclassof.append((cls.name, ocls.name, llh))
+            ocls.children.add((cls, llh))
+            cls.parents.add((ocls, llh))
+            for c, llh2 in frozenset(cls.children):
+                llh3 = max(0.5,min(llh,llh2))
+                addoverclassof(c, cls, llh3)
                 
-        def addsubclassof(scls, cls):
-            newsubclassof.add((scls.name, cls.name))
-            cls.children.add(scls)
-            scls.parents.add(cls)
-            for p in frozenset(cls.parents):
-                addsubclassof(scls, p)
+        def addsubclassof(scls, cls, llh):
+            newsubclassof.append((scls.name, cls.name, llh))
+            cls.children.add((scls, llh))
+            scls.parents.add((cls, llh))
+            for p, llh2 in frozenset(cls.parents):
+                llh3 = max(0.5,min(llh,llh2))
+                addsubclassof(scls, p, llh3)
                 
-        def addequivalent(cls, equ, memory):
+        def addequivalent(cls, equ, llh, memory):
             if equ not in memory:
-                memory.add(equ)
-                newequivalentclasses.add((cls.name, equ.name))
-                cls.equivalents.add(equ)
-                equ.equivalents.add(cls)
-                for e in frozenset(equ.equivalents):
-                    addequivalent(cls, e, memory)
+                if cls.name==equ.name:
+                    llh=1
+                memory.add(equ) # check if need to add llh
+                newequivalentclasses.append((cls.name, equ.name, llh))
+                cls.equivalents.add((equ, llh))
+                equ.equivalents.add((cls, llh))
+                for e, llh2 in frozenset(equ.equivalents):
+                    llh3 = max(0.5,min(llh,llh2))
+                    addequivalent(cls, e, llh3, memory)
 
         for name, cls in onto.items():        # just activated onto.items() could be interesting
-            for p in frozenset(cls.parents):
-                addsubclassof(cls, p)
-            for i in cls.instances: 
-                addinstance(i, cls)
+            for p, llh in frozenset(cls.parents):
+                addsubclassof(cls, p, llh)
+            for i, llh in cls.instances: 
+                addinstance(i, cls, llh)
             
             memory = set()
-            for equivalent in frozenset(cls.equivalents):
-                addequivalent(cls, equivalent, memory)
-            for equivalent in cls.equivalents:
-                for p in frozenset(cls.parents):
-                    addsubclassof(equivalent, p)
-                for c in frozenset(cls.children):
-                    addoverclassof(c, equivalent)
-                for i in cls.instances:
-                    addinstance(i, equivalent)
+            for equivalent, llh in frozenset(cls.equivalents):
+                addequivalent(cls, equivalent, max(0.5,llh), memory)
+            for equivalent, llh in cls.equivalents:
+                if equivalent.name!=cls.name:
+                    for p, llh2 in frozenset(cls.parents):
+                        llh3 = max(0.5,min(llh,llh2))
+                        addsubclassof(equivalent, p, llh3)
+                    for c, llh2 in frozenset(cls.children):
+                        llh3 = max(0.5,min(llh,llh2))
+                        addoverclassof(c, equivalent, llh3)
+                    for i, llh2 in cls.instances:
+                        llh3 = max(0.5,min(llh,llh2))
+                        addinstance(i, equivalent, llh3)
 
-                
-        
-        newrdftype -= rdftype
-        newsubclassof -= subclassof
-        newequivalentclasses -= equivalentclasses
         return newrdftype, newsubclassof, newequivalentclasses
 
     def symmetric_statements(self, model): # add likelihood
 
         with self.db:
-            stmts = {(row[0], row[1], row[2], model) for row in self.db.execute(
-                '''SELECT subject, predicate, object FROM %s 
+            stmts = {(row[0], row[1], row[2], row[3], model) for row in self.db.execute(
+                '''SELECT subject, predicate, object, likelihood FROM %s 
                 WHERE (predicate IN ('%s') AND model=? AND topic='general')
                 ''' % (TABLENAME, "', '".join(self.SYMMETRIC_PREDICATES)), [model])}
+                
+                # the fact that we can use llh and not max(0.5,llh) come frome 
+                # that the contrary is also symetrique
+                # with a motor of contrary it will be done automatically
+                # then we could proprely use max(0.5,llh)
+                #
+                # demo :
+                # a=b false => b=a ? (can't say)
+                # but by contrary stmt :
+                # a!=b true => b!=a true
+                # then by contrary stmt again :
+                # b=a false
 
-        return {(o, p, s, m) for s, p, o, m in stmts} - stmts
+        return {(o, p, s, m, llh) for s, p, o, llh, m in stmts}
 
     def classify(self):
 
-
         ok = self.copydb()
         if not ok:
+            logging.error('cannot copy the database')
             return
 
         models = self.get_models()
@@ -170,10 +186,9 @@ class reasoner():
 
         for model in models:
             rdftype, subclassof, equivalentclasses = self.get_missing_taxonomy_stmts(model)
-
-            newstmts += [(i, "rdf:type", c, model) for i,c in rdftype]
-            newstmts += [(cc, "rdfs:subClassOf", cp, model) for cc,cp in subclassof]
-            newstmts += [(eq1, "owl:equivalentClass", eq2, model) for eq1,eq2 in equivalentclasses]
+            newstmts += [(i, "rdf:type", c, model, llh) for i,c,llh in rdftype]
+            newstmts += [(cc, "rdfs:subClassOf", cp, model, llh) for cc,cp,llh in subclassof]
+            newstmts += [(eq1, "owl:equivalentClass", eq2, model, llh) for eq1,eq2,llh in equivalentclasses]
 
             newstmts += self.symmetric_statements(model)
 
@@ -191,7 +206,7 @@ class reasoner():
 
         visualknowledge = None
         with db:
-            visualknowledges = {(row[0], row[1], row[2]) for row in db.execute(
+            socialknowledges = {(row[0], row[1], row[2]) for row in db.execute(
                     '''SELECT subject, object, model FROM %s WHERE subject!='self' AND subject in 
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent')) 
                     AND object in 
@@ -204,7 +219,7 @@ class reasoner():
                     AND model='%s'
                     ''' % (TABLENAME, TABLENAME, DEFAULT_MODEL))}
         
-        return visualknowledges, selfknowledges
+        return socialknowledges, selfknowledges
 
 
     def update_models(self):
@@ -215,7 +230,7 @@ class reasoner():
         
         newstmts = []
             
-        visualknowledges, selfknowledge = self.get_mutual_knowledge(self.db)
+        socialknowledges, selfknowledge = self.get_mutual_knowledge(self.db)
         
         trans_know = {}
         
@@ -246,7 +261,7 @@ class reasoner():
                     model_mk = trans_know.setdefault((model,agent),set())
                     model_mk.add((p,o))
         
-        for agent1, agent2, model in visualknowledges:
+        for agent1, agent2, model in socialknowledges:
             
             # take care of the concerned agent2 :
             if agent2=='self':
@@ -305,7 +320,7 @@ class reasoner():
             with self.db:
                 self.db.execute("DELETE FROM %s" % TABLENAME)
                 self.db.executemany('''INSERT INTO %s
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''' % TABLENAME,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''' % TABLENAME,
                     res)
             return True
         except sqlite3.OperationalError:
@@ -316,13 +331,24 @@ class reasoner():
 
     def update_shared_db(self, stmts, topic):
         
-        nodes = [[ s, p, o, model, model.replace('_',' ').split()[-1], "%s%s%s%s"%(s,p,o, model), topic ] for s,p,o,model in stmts]
+        nodes = [[ s, p, o, model, model.replace('_',' ').split()[-1], "%s%s%s%s"%(s,p,o, model), topic ] for s,p,o,model,llh in stmts]
+        llh_nodes = [[ llh, llh, llh, "%s%s%s%s"%(s,p,o, model) ] for s,p,o,model,llh in stmts]
 
-        with self.shareddb:
-            self.shareddb.executemany('''INSERT OR IGNORE INTO %s
-                 (subject, predicate, object, model, agent, id, topic)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
-            self.shareddb.commit()
+        #with self.shareddb:
+        self.shareddb.executemany('''INSERT OR IGNORE INTO %s
+             (subject, predicate, object, model, agent, id, topic)
+             VALUES (?, ?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
+        
+        self.shareddb.executemany(''' UPDATE %s SET likelihood = ((SELECT likelihood)*?
+                      /((SELECT likelihood)*? + (1-(SELECT likelihood))*(1-?))) 
+                      WHERE id=? AND infered=1''' % TABLENAME, llh_nodes)
+                      
+        self.shareddb.execute(''' UPDATE %s SET infered=0 
+                      WHERE infered=1''' % TABLENAME)
+        
+        self.shareddb.commit()
+        
+        
             
     # LAUNCH methods
     # --------------
@@ -365,7 +391,7 @@ def reasoner_stop():
         reason.running = False
 
 
-'''
+
 # TESTING
 #-----------------------
 
@@ -375,6 +401,6 @@ if __name__=='__main__':
     reason.classify()
     reason.update_models()
     reason.shareddb.close()
-    reason.db.close()'''
+    reason.db.close()
 
 

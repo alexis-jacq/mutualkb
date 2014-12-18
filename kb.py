@@ -22,6 +22,7 @@ TABLE = ''' CREATE TABLE IF NOT EXISTS %s
             "assumed" BOOLEAN DEFAULT 0 NOT NULL,
             "active" INT DEFAULT 0 NOT NULL,
             "matter" FLOAT DEFAULT 0.5 NOT NULL,
+            "infered" BOOLEAN DEFAULT 1 NOT NULL,
             "id" TEXT PRIMARY KEY NOT NULL UNIQUE)'''
 
 DEFAULT_MODEL = 'K_myself'
@@ -88,10 +89,10 @@ class KB:
             matter = numpy.absolute(llh-hold_llh)
             self.conn.executemany('''UPDATE %s SET matter='%f' WHERE id=?''' % (TABLENAME, matter), ids)
             
-        nodes = [[ s, p, o, model, "%s%s%s%s"%(s,p,o, model) ] for s,p,o in stmts]
+        nodes = [[ s, p, o, model, 0, "%s%s%s%s"%(s,p,o, model) ] for s,p,o in stmts]
         self.conn.executemany('''INSERT OR IGNORE INTO %s
-                       (subject, predicate, object, model, id )
-                       VALUES (?, ?, ?, ?, ?)''' % TABLENAME, nodes)
+                       (subject, predicate, object, model, infered, id )
+                       VALUES (?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes)
             
         if likelihood:
             self.conn.executemany('''UPDATE %s SET likelihood=((SELECT likelihood)*%f

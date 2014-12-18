@@ -162,13 +162,17 @@ class processKB:
             time.sleep(3)
             print('first adds')
             
-            self.add_general([[ 'self', 'rdf:type', 'robot'],['robot','rdfs:subClassOf','agent']],DEFAULT_MODEL,0.5)
+            self.add_general([[ 'self', 'rdf:type', 'robot'],['robot','rdfs:subClassOf','agent']],DEFAULT_MODEL,0.7)
             self.add_general([['agent','rdfs:subClassOf','humanoide'],['human','rdfs:subClassOf','animals']],DEFAULT_MODEL,0.5)
-            self.add_general([['robot','owl:equivalentClass','machine'],['machine','owl:equivalentClass','automate']],DEFAULT_MODEL,0.5)
+            
+            self.add_general([['robot','owl:equivalentClass','machine'],['machine','owl:equivalentClass','automate']],DEFAULT_MODEL,0.2)
+            
+            '''
             self.add_general([['zoro', 'rdf:type', 'agent'], ['vincent', 'rdf:type', 'agent'], ['pierre', 'rdf:type', 'agent'], ['marc', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
             self.add_conceptual([['zoro', 'knows', 'vincent'],['marc', 'knows', 'pierre']],DEFAULT_MODEL,0.5)
             self.add_general([['superman', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
-            
+            '''
+            '''
             time.sleep(5)
             
             print('second adds')
@@ -242,7 +246,7 @@ class processKB:
             self.add_conceptual([['ball', 'exploses', 'false']],DEFAULT_MODEL,0.8)
             time.sleep(1)
             self.add_physic([['ball', 'on', 'table']],DEFAULT_MODEL,0.9)
-            
+            '''
             
             while True:
                 '''listend world or dialogues'''
