@@ -23,6 +23,7 @@ TABLE = ''' CREATE TABLE IF NOT EXISTS %s
             "active" INT DEFAULT 0 NOT NULL,
             "matter" FLOAT DEFAULT 0.5 NOT NULL,
             "infered" BOOLEAN DEFAULT 1 NOT NULL,
+            "modified" BOOLEAN DEFAULT 1 NOT NULL,
             "id" TEXT PRIMARY KEY NOT NULL UNIQUE)'''
 
 DEFAULT_MODEL = 'K_myself'
@@ -69,14 +70,32 @@ class KB:
             topic = likelihood
             likelihood = None
 
-        if likelihood:
+        if likelihood or likelihood==0:
             llh = likelihood
         else:
             llh = 0.5
         
         self.wait_turn()
+        
+        new_stmts = []
+        for s,p,o in stmts:
+            if o=='?':
+                stmts_to_add = {(s, p, row[0]) for row in self.conn.execute(
+                            '''SELECT object FROM %s WHERE
+                            model="%s" AND subject="%s" AND predicate="%s" ''' % (TABLENAME, model,s,p))}
+                if stmts_to_add:
+                    for stmt in stmts_to_add:
+                        new_stmts.append(stmt)
+                else:
+                    new_stmts.append([s,p,'??'])
+            else:
+                new_stmts.append([s,p,o])
+                
+        stmts = new_stmts
+        
 
         ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
+        node_ids = [("%s%s%s%s"%(s,p,o, model)) for s,p,o in stmts]
         
 
         for node_id in ids:
@@ -93,11 +112,24 @@ class KB:
         self.conn.executemany('''INSERT OR IGNORE INTO %s
                        (subject, predicate, object, model, infered, id )
                        VALUES (?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes)
+                       
+        self.conn.executemany('''UPDATE %s SET modified = 1
+                            WHERE id=?''' % TABLENAME, ids)
             
-        if likelihood:
-            self.conn.executemany('''UPDATE %s SET likelihood=((SELECT likelihood)*%f
-                          /((SELECT likelihood)*%f + (1-(SELECT likelihood))*(1-%f))) 
-                          WHERE id=?''' % (TABLENAME, likelihood, likelihood, likelihood), ids)
+        if likelihood or likelihood==0:
+            
+            llh = likelihood
+            for node in node_ids:
+                cur = self.conn.execute('''SELECT likelihood FROM %s WHERE id=?'''% TABLENAME, [node])
+                lh = cur.fetchone()[0]
+                likelihood = llh
+                if (lh-llh)*(lh-llh)==1:
+                    pass
+                else:
+                    likelihood = lh*llh/( lh*llh + (1-lh)*(1-llh) )
+                    
+                self.conn.execute(''' UPDATE %s SET likelihood=%f 
+                                    WHERE id=?''' % (TABLENAME, likelihood), [node])
 
         if topic:
             if topic not in ['general', 'physical', 'conceptual']:
