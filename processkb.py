@@ -93,20 +93,20 @@ class processKB:
             self.conflicts.solve(stmts, model)'''
         self.kb.save()
 
-    def add_conceptual(self, stmts, models=None, likelihood=None):
+    def add_specific(self, stmts, models=None, likelihood=None):
             
         if likelihood or likelihood==0:
             if models:
                 for model in models:
-                    self.kb.add(stmts, model, likelihood, "conceptual")
+                    self.kb.add(stmts, model, likelihood, "specific")
             else:
-                self.kb.add(stmts, DEFAULT_MODEL, likelihood, "conceptual")
+                self.kb.add(stmts, DEFAULT_MODEL, likelihood, "specific")
         else:
             if models:  
                 for model in models:
-                    self.kb.add(stmts, model, 0.5, "conceptual")
+                    self.kb.add(stmts, model, 0.5, "specific")
             else:           
-                self.kb.add(stmts, DEFAULT_MODEL, 0.5, "conceptual")
+                self.kb.add(stmts, DEFAULT_MODEL, 0.5, "specific")
 
         '''for model in models:
             self.conflicts.updtate(stmts, model)
@@ -170,7 +170,7 @@ class processKB:
             '''
             basic tests ( mutual knowledge )
             self.add_general([['zoro', 'rdf:type', 'agent'], ['vincent', 'rdf:type', 'agent'], ['pierre', 'rdf:type', 'agent'], ['marc', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
-            self.add_conceptual([['zoro', 'knows', 'vincent'],['marc', 'knows', 'pierre']],DEFAULT_MODEL,0.5)
+            self.add_specific([['zoro', 'knows', 'vincent'],['marc', 'knows', 'pierre']],DEFAULT_MODEL,0.5)
             self.add_general([['superman', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
             '''
             

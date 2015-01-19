@@ -10,8 +10,6 @@ REASONER_RATE = 2 #Hz
 END = False
 DEFAULT_MODEL = 'K_myself'
 
-# add M operator et K operator
-
 class OntoClass():
 
     def __init__(self, name, modified):
@@ -21,6 +19,117 @@ class OntoClass():
         self.children = set()
         self.instances = set()
         self.equivalents = set()
+        
+# recursive functions for ontologic inheritances :
+#------------------------------------------------
+
+def addequivalent(equivalentclasses, cls, equivalent, llh, memory=None):
+    '''
+    propagation of equivalence properties :
+    --------------------------------------- 
+        1) transitivity : (A = B) and (B = C) then (A = C)
+        2) symetry : (A = B) then (B = A)
+        3) the reflexive property results from symetry and transitivity.
+        
+    we need to update the classes to make the additions available for the other calls of inheritance functions 
+        
+    the memory set is used to prevent the method to loop infinitly 
+    for instance :
+     
+        let B in the set of equivalents of A
+        then the method do with (A and B) :
+        
+            1) equivalentclasses.add(A.name , B.name)
+            2) A is added to the set of equivalents of B
+            3) for every equivalents C of the set of B do the same with (A and C)
+                but inside this set we find A (we just added it !)
+                so :
+                    1) equivalentclasses.add(A.name , A.name) --> ok, reflexivity is added
+                    2) B is added to the set of equivalents of A --> (no effect because it was already here, but ok)
+                    3) for every equivalents C of the set of A do the same with (A and C)
+                        but inside we find B !!!
+                        so :
+                            without memory, it loops infinitly
+                            but with memory, it finds that B have already been handled
+    '''
+    if not memory:
+        memory = set()
+    
+    if equivalent not in memory:
+        if cls.name==equ.name:
+            llh=1 # re-find why I did that... 
+        
+        memory.add(equivalent)
+        
+        equivalentclasses.append((cls.name, equivalent.name, llh))
+        cls.equivalents.add((equivalent, llh)) # update classes
+        
+        # reflexive property :
+        equivalent.equivalents.add((cls, llh)) # update classes
+        
+        # transitive property :
+        for e, llh2 in frozenset(equivalent.equivalents):
+            llh3 = max(0.5,min(llh,llh2))
+            addequivalent(equivalentclasses, cls, e, llh3, memory)
+            
+
+def addsubclassof(subclassof, scls, cls, llh):
+    '''
+    propagation of inclusions :
+    ---------------------------
+        the inclusions are just transitives : (A in B) and (B in C) then (A in C)
+    
+    we need to update the classes to make the additions available for the other calls of inheritance functions
+    '''
+    subclassof.append((scls.name, cls.name, llh))
+    # update classes
+    cls.children.add((scls, llh))
+    scls.parents.add((cls, llh))
+    
+    # transitivity :
+    for p, llh2 in frozenset(cls.parents):
+        llh3 = max(0.5,min(llh,llh2))
+        addsubclassof(subclassof, scls, p, llh3)
+            
+
+def addoverclassof(subclassof, cls, ocls, llh):
+    '''
+    back-track propagation of inclusion :
+    -------------------------------------
+        this backtracking seems to be unusful (it does the same thing than in addsubclassof) 
+        but is used after adding equivalences :
+        indeed, the property " (A = B) and (C in A) then (C in B) " cannot be taken in account by the method addsubclassof
+        
+    we need to update the classes to make the additions available for the other calls of inheritance functions
+    '''
+    
+    subclassof.append((cls.name, ocls.name, llh))
+    # update classes :
+    ocls.children.add((cls, llh))
+    cls.parents.add((ocls, llh))
+    
+    # transitivity :
+    for c, llh2 in frozenset(cls.children):
+        llh3 = max(0.5,min(llh,llh2))
+        addoverclassof(subclassof, c, cls, llh3)
+        
+        
+def addinstance(rdftype, instance, cls, llh):
+    '''
+    propagation of instances :
+    ---------------------------
+        the instances are just transitives : (A in B) and (B in C) then (A in C)
+        
+    don't need to update the classes because they are not used by the other functions
+    '''
+    
+    rdftype.append((instance, cls.name, llh))
+    
+    for p, llh2 in cls.parents:
+        llh3 = max(0.5,min(llh,llh2))
+        addinstance(rdftype, instance, p, llh3)
+            
+#----------------------------------------
 
 class reasoner():
 
@@ -97,61 +206,27 @@ class reasoner():
         newsubclassof = []
         newequivalentclasses=[]
         
-        def addinstance(instance, cls, llh):
-            newrdftype.append((instance, cls.name, llh))
-            for p, llh2 in cls.parents:
-                llh3 = max(0.5,min(llh,llh2))
-                addinstance(instance, p, llh3)
-
-        def addoverclassof(cls, ocls, llh):
-            newsubclassof.append((cls.name, ocls.name, llh))
-            ocls.children.add((cls, llh))
-            cls.parents.add((ocls, llh))
-            for c, llh2 in frozenset(cls.children):
-                llh3 = max(0.5,min(llh,llh2))
-                addoverclassof(c, cls, llh3)
-                
-        def addsubclassof(scls, cls, llh):
-            newsubclassof.append((scls.name, cls.name, llh))
-            cls.children.add((scls, llh))
-            scls.parents.add((cls, llh))
-            for p, llh2 in frozenset(cls.parents):
-                llh3 = max(0.5,min(llh,llh2))
-                addsubclassof(scls, p, llh3)
-                
-        def addequivalent(cls, equ, llh, memory):
-            if equ not in memory:
-                if cls.name==equ.name:
-                    llh=1
-                memory.add(equ) # check if need to add llh
-                newequivalentclasses.append((cls.name, equ.name, llh))
-                cls.equivalents.add((equ, llh))
-                equ.equivalents.add((cls, llh))
-                for e, llh2 in frozenset(equ.equivalents):
-                    llh3 = max(0.5,min(llh,llh2))
-                    addequivalent(cls, e, llh3, memory)
-
-        for name, cls in onto.items(): # just not processed onto.items() could be interesting
-            if cls.modified:        
+        for name, cls in onto.items(): # just no-processed onto.items() could be interesting
+            if cls.modified:
                 for p, llh in frozenset(cls.parents):
-                    addsubclassof(cls, p, llh)
+                    addsubclassof(newsubclassof, cls, p, llh)
                 for i, llh in cls.instances: 
-                    addinstance(i, cls, llh)
+                    addinstance(newrdftype, i, cls, llh)
                 
-                memory = set()
                 for equivalent, llh in frozenset(cls.equivalents):
-                    addequivalent(cls, equivalent, max(0.5,llh), memory)
+                    addequivalent(newequivalentclasses, cls, equivalent, max(0.5,llh))
+                    
                 for equivalent, llh in cls.equivalents:
                     if equivalent.name!=cls.name:
                         for p, llh2 in frozenset(cls.parents):
                             llh3 = max(0.5,min(llh,llh2))
-                            addsubclassof(equivalent, p, llh3)
+                            addsubclassof(newsubclassof, equivalent, p, llh3)
                         for c, llh2 in frozenset(cls.children):
                             llh3 = max(0.5,min(llh,llh2))
-                            addoverclassof(c, equivalent, llh3)
+                            addoverclassof(newsubclassof, c, equivalent, llh3)
                         for i, llh2 in cls.instances:
                             llh3 = max(0.5,min(llh,llh2))
-                            addinstance(i, equivalent, llh3)
+                            addinstance(newrdftype, i, equivalent, llh3)
 
         return newrdftype, newsubclassof, newequivalentclasses
 
@@ -193,11 +268,6 @@ class reasoner():
             self.newstmts += [(eq1, "owl:equivalentClass", eq2, model, llh, 'general') for eq1,eq2,llh in equivalentclasses]
 
             self.newstmts += self.symmetric_statements(model)
-
-
-        #if newstmts:
-
-        #    self.update_shared_db(newstmts)
     
 
 
@@ -249,17 +319,21 @@ class reasoner():
                 generalknowledge = {(row[0], row[1], row[2]) for row in self.db.execute(
                             '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
                             AND model="%s" AND topic="general" AND modified=1 ''' % (TABLENAME, agent, model))}
+                            # not necessary WHERE subject = agent AND model = model, evrerybody are assumed to know 
+                            # the general knowledge
+                            # general knowledge is ontology stuff (human subclassof agent)
+                            # so instences (somebody rdf:Type agent) are specific knowledge 
                             
-                conceptualknowledge = {(row[0], row[1], row[2]) for row in self.db.execute(
+                specificknowledge = {(row[0], row[1], row[2]) for row in self.db.execute(
                             '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
-                            AND model="%s" AND topic="conceptual" AND modified=1 ''' % (TABLENAME, agent, model))}
+                            AND model="%s" AND topic="specific" AND modified=1 ''' % (TABLENAME, agent, model))}
                             
                     
                 self.newstmts += [('self', 'rdf:type', 'agent', new_model, llh, 'general')]
                 
                 # transfert of knowledgde :
                 #--------------------------
-                if generalknowledge:
+                if generalknowledge: # things that the robot assums known for every body
                     for p,o,lh in generalknowledge:
                         
                         if o=='self':
@@ -272,8 +346,8 @@ class reasoner():
                         else:
                             self.newstmts += [('self', p, o, new_model, 0.5, 'general')]
                         
-                if conceptualknowledge:
-                    for p,o,lh in generalknowledge:
+                if specificknowledge: # agents know the specific things about themself
+                    for p,o,lh in specificknowledge:
                         
                         if o=='self':
                             o = model.replace('_',' ').split()[-1]
@@ -281,9 +355,9 @@ class reasoner():
                             o = 'self'
                     
                         if llh > 0.5:
-                            self.newstmts += [('self', p, o, new_model, lh, 'conceptual')]
+                            self.newstmts += [('self', p, o, new_model, lh, 'specific')]
                         else:
-                            self.newstmts += [('self', p, o, new_model, 0.5, 'conceptual')]
+                            self.newstmts += [('self', p, o, new_model, 0.5, 'specific')]
                         
         
         for agent1, agent2, model, llh in socialknowledges:
@@ -306,15 +380,6 @@ class reasoner():
                 new_model2 = ''.join(new_spl_model2)
                 
                 self.newstmts += [(agent2, 'rdf:type', 'agent', new_model2, llh, 'general')]
-                '''new_model2_mk = trans_know.setdefault((new_model2,agent2),set())
-                new_model2_mk.add(('rdf:type','agent'))
-                
-                k_from_model = trans_know.setdefault((model,agent2),set())
-                if k_from_model:
-                    for p,o in k_from_model:
-                        newstmts += [(agent2, p, o, new_model2, llh, 'general')]
-                        new_model2_mk = trans_know.setdefault((new_model2,agent2),set())
-                        new_model2_mk.add((p,o))'''
                 
                 # agent1 knows agent2 is self-conscious : 
                 #----------------------------------------
@@ -328,37 +393,11 @@ class reasoner():
                     
                                 
                     self.newstmts += [('self', 'rdf:type', 'agent', new_model1, llh, 'general')]
-                    '''new_model1_mk = trans_know.setdefault((new_model1,agent2),set())
-                    new_model1_mk.add(('rdf:type','agent'))
-                    
-                    k_from_model = trans_know.setdefault((new_model2,agent2),set())
-                    if k_from_model:
-                        for p,o in k_from_model:
-                            newstmts += [('self', p, o, new_model1, llh, 'general')]
-                            new_model1_mk = trans_know.setdefault((new_model1,agent2),set())
-                            new_model1_mk.add((p,o))'''
                             
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
-                
                 self.newstmts += [(agent1, 'rdf:type', 'agent', model, llh, 'general')]
                 self.newstmts += [(agent2, 'rdf:type', 'agent', model, llh, 'general')]
-                
-                '''new_model1_mk = trans_know.setdefault((model,agent1),set())
-                new_model1_mk.add(('rdf:type','agent'))
-                
-                k_from_model = trans_know.setdefault((new_model2,agent2),set())
-                if k_from_model:
-                    for p,o in k_from_model:
-                        newstmts += [('self', p, o, new_model1, llh, 'general')]
-                        new_model1_mk = trans_know.setdefault((new_model1,agent2),set())
-                        new_model1_mk.add((p,o))'''
-                
-                
-                        
-        #if newstmts:
-            
-        #    self.update_shared_db(newstmts)
 
 
     # UPDATE methods

@@ -18,7 +18,7 @@ TABLE = ''' CREATE TABLE IF NOT EXISTS %s
             "model" TEXT NOT NULL ,
             "agent" TEXT NOT NULL DEFAULT "myself",
             "likelihood" FLOAT DEFAULT 0.5 NOT NULL,
-            "topic" TEXT DEFAULT "conceptual" NOT NULL,
+            "topic" TEXT DEFAULT "specific" NOT NULL,
             "assumed" BOOLEAN DEFAULT 0 NOT NULL,
             "active" INT DEFAULT 0 NOT NULL,
             "matter" FLOAT DEFAULT 0.5 NOT NULL,
@@ -132,9 +132,9 @@ class KB:
                                     WHERE id=?''' % (TABLENAME, likelihood), [node])
 
         if topic:
-            if topic not in ['general', 'physical', 'conceptual']:
-                logger.warning('not handled topic : <<%s>>, replacing by default topic (conceptual)' % topic) 
-                topic='conceptual'
+            if topic not in ['general', 'physical', 'specific']:
+                logger.warning('not handled topic : <<%s>>, replacing by default topic (specific)' % topic) 
+                topic='specific'
             self.conn.executemany('''UPDATE %s SET topic='%s' WHERE id=?''' % (TABLENAME, topic), ids)
 
         agent = model.replace('_',' ').split()[-1]
