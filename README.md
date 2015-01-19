@@ -1,5 +1,5 @@
-optimalkb
-=========
+mutualKB
+========
 
 ![human holds an apple... human looks me... human knows I see the apple he holds... human knows I know he holds an apple](mutual_picture.png)
 
