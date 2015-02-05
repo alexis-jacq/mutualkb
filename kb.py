@@ -12,9 +12,7 @@ TABLE = ''' CREATE TABLE IF NOT EXISTS %s
             "predicate" TEXT NOT NULL ,
             "object" TEXT NOT NULL ,
             "model" TEXT NOT NULL ,
-            "agent" TEXT NOT NULL DEFAULT "myself",
             "likelihood" FLOAT DEFAULT 0.5 NOT NULL,
-            "assumed" BOOLEAN DEFAULT 0 NOT NULL,
             "active" INT DEFAULT 0 NOT NULL,
             "matter" FLOAT DEFAULT 0.5 NOT NULL,
             "infered" BOOLEAN DEFAULT 1 NOT NULL,
@@ -52,7 +50,7 @@ class KB:
 
 
 
-    # REASON/WORLD/DIALOG methods
+    # ADD methods
     #-------------------------
 
     def add(self, stmts, model, likelihood=None):
@@ -142,46 +140,38 @@ class KB:
         self.save()
 
 
-    def assum(self, stmts, model):
-
-        ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-
-        self.conn.executemany('''UPDATE %s SET assumed=1 WHERE id=?''' % TABLENAME, ids)
-
-        self.save()
-
-    def refute(self, stmts, model):
-
-        ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-
-        self.conn.executemany('''UPDATE %s SET assumed=0 WHERE id=?''' % TABLENAME, ids)
-
-        self.save()
-
-
     # THOUGHT methods
     #----------------------------
 
-    def fire(self, ids):
-        '''stmts = this methode actives the selected nodes'''
 
-        self.conn.executemany('''UPDATE %s SET active=5 WHERE id=?''' % TABLENAME, ids)
-        self.save()
+    def get_attractive_nodes(self,threshold):
+       nodes = {(row[0], row[1]) for row in self.conn.execute('''SELECT id, matter FROM %s WHERE matter>%f''' %(TABLENAME, threshold))}
+       return nodes
 
+    def fire(self, node_id, fire_time):
+       ''' actives the selected nodes'''
+       self.wait_turn()
+       self.conn.execute('''UPDATE %s SET active = %i WHERE id=?''' % (TABLENAME, fire_time), (node_id,))
+       self.conn.commit()
+       #time.sleep(1/THOUGHT_RATE)
 
-    def douse(self, ids):
-        '''stmts = this methode disactives the selected nodes '''
+    def clock(self):
+       ''' update the time each node keeps firing '''
+       self.wait_turn()
+       self.conn.execute('''UPDATE %s SET active = (SELECT active)-1 WHERE active>0''' % TABLENAME)
+       self.conn.commit()
 
-        self.conn.executemany('''UPDATE %s SET active=0 WHERE id=?''' % TABLENAME, ids)
-        self.save()
+    def douse(self):
+       ''' disactives the time-out nodes '''
+       self.wait_turn()
+       self.conn.execute('''UPDATE %s SET matter=0 WHERE active>0.1 ''' % TABLENAME)
+       self.conn.commit()
 
-
-    def kill(self, ids):
-        '''this methode removes the selected nodes '''
-
-        self.conn.executemany('''DELETE FROM %s WHERE id=?''' % TABLENAME, ids)
-        self.save()
-
+    def kill(self, node_id):
+       ''' removes the selected nodes '''
+       self.wait_turn()
+       self.conn.execute('''DELETE FROM %s WHERE id=?''' % TABLENAME, (node_id,))
+       self.conn.commit()
 
     # TEST methods
     #---------------------------------
@@ -194,6 +184,3 @@ class KB:
         except sqlite3.OperationalError:
             test = {}
         return test
-
-
-

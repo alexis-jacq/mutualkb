@@ -13,6 +13,9 @@ REASONER_RATE = 2 #Hz
 END = False
 DEFAULT_MODEL = 'K_myself'
 
+# usefull objects :
+#==================
+
 class OntoClass():
     ''' this class defines an object that encodes ontologic links
     between existing subjects/objects in the knowledge base'''
@@ -25,7 +28,7 @@ class OntoClass():
         self.equivalents = set()
 
 # recursive functions for ontologic inheritances :
-#------------------------------------------------
+#=================================================
 
 def addequivalent(equivalentclasses, cls, equivalent, llh, memory=None):
     '''
@@ -145,7 +148,8 @@ def addinstance(rdftype, instance, cls, llh):
         llh3 = max(0.5, min(llh, llh2))
         addinstance(rdftype, instance, par, llh3)
 
-#----------------------------------------
+# REASONER :
+#===========
 
 class Reasoner():
 
@@ -188,8 +192,8 @@ class Reasoner():
             return [row[0] for row in self.db.execute("SELECT DISTINCT model FROM %s" % TABLENAME)]
 
 
-    # ONTOLOGY methods ==> general knowledge
-    #---------------------------------------------
+    # ONTOLOGY methods :
+    #===================
 
     def get_onto(self, db, model = DEFAULT_MODEL):
 
@@ -304,27 +308,41 @@ class Reasoner():
 
 
 
-    # MUTUAL MODELING methods
-    #---------------------------
+    # MUTUAL MODELING methods :
+    #==========================
 
-    def get_mutual_knowledge(self, db):
+    def get_mutual_modelings(self, db):
 
-        visualknowledge = None
         with db:
-            socialknowledges = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent')) 
-                    AND object in 
+            generalModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
+                    '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
-                    AND predicate="knows" OR predicate = "sees"
-                    ''' % (TABLENAME, TABLENAME, TABLENAME))}
-            selfknowledges = {(row[0], row[1], row[2]) for row in db.execute(
+                    AND object in
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    AND predicate IN ('%s')
+                    AND likelihood>=0.5
+                    ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.GENERAL_KNOWLEDGE_PREDICATES)))}
+
+            visualModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
+                    '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    AND object in
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    AND predicate IN ('%s')
+                    AND likelihood>=0.5
+                    ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.VISUAL_KNOWLEDGE_PREDICATES)))}
+
+            selfModelings = {(row[0], row[1], row[2]) for row in db.execute(
                     '''SELECT DISTINCT subject, model, likelihood FROM %s WHERE subject!='self' AND subject in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent')) 
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    ''' % (TABLENAME, TABLENAME))} | {(row[0], row[1], row[2]) for row in db.execute(
+                    '''SELECT DISTINCT object, model, likelihood FROM %s WHERE object!='self' AND object in 
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
                     ''' % (TABLENAME, TABLENAME))}
 
 
-        return socialknowledges, selfknowledges
+
+        return generalModelings, visualModelings, selfModelings
 
 
     def update_models(self):
@@ -333,41 +351,91 @@ class Reasoner():
         if not ok:
             return
 
-        socialknowledges, selfknowledge = self.get_mutual_knowledge(self.db)
+        generalModelings, visualModelings, selfModelings = self.get_mutual_modelings(self.db)
 
-        for agent, model, llh in selfknowledge:
+        for agent, model, llh in selfModelings:
+        # when there is an agent
 
-            # take care of the concerned agent :
+            # take care of who is the agent :
+            #--------------------------------
+            # if the agent is already the agent of the model,
+            # dont need to create a new model for himself
+            # because it already exists
             if agent=='self' or agent == model.replace('_',' ').split()[-1]:
+                # model.replace('_',' ').split()[-1] gives the agent of the model
                 pass
             else:
 
-                # agents are self-conscious :
-                #----------------------------
+                # get the name of the model for the agent :
+                #------------------------------------------
                 spl_model = model.replace('_',' _ ').replace(':',' : ').split()
-
                 new_spl_model = [''.join(spl_model[:-3])] + ['M_'] + [''.join(spl_model[-1])] + [':K_'] + [agent]
                 new_model = ''.join(new_spl_model)
 
-                generalknowledge = {(row[0], row[1], row[2]) for row in self.db.execute(
+                # get the knowledge that the agent is supposed to have:
+                #------------------------------------------------------
+                common_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
+                            '''SELECT DISTINCT subject, predicate, object, likelihood FROM %s
+                            WHERE ( id IN (
+                            SELECT DISTINCT subject WHERE predicate='is'
+                                                    AND object='common'
+                                                    AND model='%s'
+                                                    AND likelihood>=0.5)
+                            OR (predicate='is' AND object='common' AND likelihood>=0.5) )
+                            AND  modified=1''' % (TABLENAME, DEFAULT_MODEL))}
+
+                shared_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
+                            '''SELECT DISTINCT subject, predicate, object, likelihood FROM %s
+                            WHERE id IN (
+                            SELECT DISTINCT subject WHERE predicate='is'
+                                                    AND object='shared'
+                                                    AND model='%s'
+                                                    AND likelihood>=0.5)
+                            AND  modified=1 ''' % (TABLENAME, model))}
+
+
+                self_description = {(row[0], row[1], row[2]) for row in self.db.execute(
                             '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
                             AND model="%s" AND modified=1 ''' % (TABLENAME, agent, model))}
-                            # not necessary WHERE subject = agent AND model = model, evrerybody are assumed to know 
-                            # the general knowledge
-                            # general knowledge is ontology stuff (human subclassof agent)
-                            # so instences (somebody rdf:Type agent) are specific knowledge 
 
-                specificknowledge = {(row[0], row[1], row[2]) for row in self.db.execute(
-                            '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
-                            AND model="%s" AND modified=1 ''' % (TABLENAME, agent, model))}
-
-
+                # make sure agent is conscious to be an agent :
+                #----------------------------------------------
                 self.newstmts += [('self', 'rdf:type', 'agent', new_model, llh)]
 
-                # transfert of knowledgde :
-                #--------------------------
-                if generalknowledge: # things that the robot assums known for every body
-                    for p,o,lh in generalknowledge:
+                # instill in the agent his supposed knowledge :
+                #----------------------------------------------
+                if common_ground:
+                # things that the robot assums that they are known for everybody
+                # and that everybody knows that they are known for everybody
+                    for s,p,o,lh in common_ground:
+
+                        if o=='self':
+                            o = model.replace('_',' ').split()[-1]
+                        if o==agent:
+                            o = 'self'
+
+                        if llh > 0.5:
+                            self.newstmts += [(s, p, o, new_model, lh)]
+                        else:
+                            self.newstmts += [(s, p, o, new_model, 0.5)]
+
+                if shared_ground:
+                # things that the robot just assums that they are known for every body
+                    for s,p,o,lh in shared_ground:
+
+                        if o=='self':
+                            o = model.replace('_',' ').split()[-1]
+                        if o==agent:
+                            o = 'self'
+
+                        if llh > 0.5:
+                            self.newstmts += [(s, p, o, new_model, lh)]
+                        else:
+                            self.newstmts += [(s, p, o, new_model, 0.5)]
+
+                if self_description:
+                # the modeled agent is supposed to know the information about himself
+                    for p,o,lh in self_description:
 
                         if o=='self':
                             o = model.replace('_',' ').split()[-1]
@@ -379,53 +447,59 @@ class Reasoner():
                         else:
                             self.newstmts += [('self', p, o, new_model, 0.5)]
 
-                if specificknowledge: # agents know the specific things about themself
-                    for p,o,lh in specificknowledge:
-
-                        if o=='self':
-                            o = model.replace('_',' ').split()[-1]
-                        if o==agent:
-                            o = 'self'
-
-                        if llh > 0.5:
-                            self.newstmts += [('self', p, o, new_model, lh)]
-                        else:
-                            self.newstmts += [('self', p, o, new_model, 0.5)]
+                # the modeler knows that the agent is an agent:
+                #----------------------------------------------
+                self.newstmts += [(agent, 'rdf:type', 'agent', model, llh)]
 
 
-        for agent1, agent2, model, llh in socialknowledges:
+        for agent1, agent2, model, llh in visualModelings:
+        # when there are 2 agents, and agent1 visualizes agent2
 
-            spl_model = model.replace('_',' _ ').replace(':',' : ').split()
-
+            # take care of who is agent1 :
+            #-----------------------------
+            # if the agent1 is already the agent of the model,
+            # dont need to create a new model for himself
+            # because it already exists
             if agent1==model.replace('_',' ').split()[-1] or agent1=='self':
                 pass
             else:
 
-                # take care of the concerned agent2 :
+                # take care of who is agent2 :
+                #-----------------------------
+                # agent2 could be the agent of the model or agent1
                 if agent2=='self':
                     agent2 = model.replace('_',' ').split()[-1]
                 if agent2==agent1:
                     agent2 = 'self'
 
-                # agent1 knows agent2 is an agent :
-                #----------------------------------
+                # get the name of the model for agent1 :
+                #---------------------------------------
+                spl_model = model.replace('_',' _ ').replace(':',' : ').split()
                 new_spl_model2 = [''.join(spl_model[:-3])] + ['M_'] + [''.join(spl_model[-1])] + [':K_'] + [agent1]
                 new_model2 = ''.join(new_spl_model2)
 
+                # agent1 knows agent2 is an agent :
+                #----------------------------------
                 self.newstmts += [(agent2, 'rdf:type', 'agent', new_model2, llh)]
 
-                # agent1 knows agent2 is self-conscious : 
-                #----------------------------------------
+                # get the name of the model for agent2 modeled by agent1:
+                #--------------------------------------------------------
                 if agent2=='self':
+                    # agent1 doesn't need a model for itself
+                    # we've just created it
                     pass
                 else:
                     spl_model = model.replace('_',' _ ').replace(':',' : ').split()
-
                     new_spl_model1 = [''.join(spl_model[:-3])] + ['M_'] + [''.join(spl_model[-1])] + [':M_'] + [agent1] + [':K_'] + [agent2]
                     new_model1 = ''.join(new_spl_model1)
 
-
+                    # agent1 knows agent2 knows it is itself an agent:
+                    #-------------------------------------------------
                     self.newstmts += [('self', 'rdf:type', 'agent', new_model1, llh)]
+
+                    # transfere to agent1 VISIBLE information about agent2:
+                    #------------------------------------------------------
+                    '''TO DO'''
 
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
@@ -433,8 +507,70 @@ class Reasoner():
                 self.newstmts += [(agent2, 'rdf:type', 'agent', model, llh)]
 
 
-    # UPDATE methods
-    # --------------
+        for agent1, agent2, model, llh in generalModelings:
+        # when there are 2 agents, and agent1 knows general info about agent2
+
+            # take care of who is agent1 :
+            #-----------------------------
+            # if the agent1 is already the agent of the model,
+            # dont need to create a new model for himself
+            # because it already exists
+            if agent1==model.replace('_',' ').split()[-1] or agent1=='self':
+                pass
+            else:
+
+                # take care of who is agent2 :
+                #-----------------------------
+                # agent2 could be the agent of the model or agent1
+                if agent2=='self':
+                    agent2 = model.replace('_',' ').split()[-1]
+                if agent2==agent1:
+                    agent2 = 'self'
+
+                # get the name of the model for agent1 :
+                #---------------------------------------
+                spl_model = model.replace('_',' _ ').replace(':',' : ').split()
+                new_spl_model2 = [''.join(spl_model[:-3])] + ['M_'] + [''.join(spl_model[-1])] + [':K_'] + [agent1]
+                new_model2 = ''.join(new_spl_model2)
+
+                # agent1 knows agent2 is an agent :
+                #----------------------------------
+                self.newstmts += [(agent2, 'rdf:type', 'agent', new_model2, llh)]
+
+                # get the name of the model for agent2 modeled by agent1:
+                #--------------------------------------------------------
+                if agent2=='self':
+                    # agent1 doesn't need a model for itself
+                    # we've just created it
+                    pass
+                else:
+                    spl_model = model.replace('_',' _ ').replace(':',' : ').split()
+                    new_spl_model1 = [''.join(spl_model[:-3])] + ['M_'] + [''.join(spl_model[-1])] + [':M_'] + [agent1] + [':K_'] + [agent2]
+                    new_model1 = ''.join(new_spl_model1)
+
+                    # agent1 knows agent2 knows it is itself an agent:
+                    #-------------------------------------------------
+                    self.newstmts += [('self', 'rdf:type', 'agent', new_model1, llh)]
+
+                    # transfere to agent1 GENERAL information about agent2:
+                    #------------------------------------------------------
+                    '''TO DO'''
+
+                # the modeler knows that agent1 and agent2 are agents :
+                #------------------------------------------------------
+                self.newstmts += [(agent1, 'rdf:type', 'agent', model, llh)]
+                self.newstmts += [(agent2, 'rdf:type', 'agent', model, llh)]
+
+
+    # CONTRARY/CONFLICTS methods :
+    #=============================
+
+    '''TO DO'''
+
+
+
+    # UPDATE methods :
+    #=================
 
     def copydb(self):
 
@@ -534,6 +670,9 @@ class Reasoner():
         except KeyboardInterrupt:
             return
 
+# threading functions :
+#======================
+
 reason = None
 
 def reasoner_start():
@@ -554,8 +693,8 @@ def reasoner_stop():
 
 
 
-# TESTING
-#-----------------------
+# TESTING :
+#==========
 
 if __name__ == '__main__':
 
@@ -564,5 +703,3 @@ if __name__ == '__main__':
     reason.update_models()
     reason.shareddb.close()
     reason.db.close()
-
-

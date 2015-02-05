@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# dynamic world learning & infering server
+# learning & infering in a dynamic world encoded as nodes in a knowledge-database
 
 import logging; logger = logging.getLogger('mylog');
 
@@ -10,8 +10,6 @@ import numpy
 import sqlite3
 import Queue
 import random
-
-from kb import KBNAME, TABLENAME
 import kb
 
 
@@ -42,7 +40,7 @@ class Dynamic:
                 else:
                     self.events[self.current_event][next_event] = 1 + random.random()/100
                     self.events[next_event] = {next_event:0}
-            fire(kb, next_event, fire_time)
+            kb.fire(next_event, fire_time)
 
         next_event = max(thought.events[thought.current_event],key = thought.events[thought.current_event].get)
         self.current_event = next_event
@@ -55,10 +53,10 @@ def counts(kb):
 
     while not END:
 
-        douse(kb)
+        kb.douse()
 
         '''check si new event'''
-        nodes = get_attractive_nodes(kb)
+        nodes = kb.get_attractive_nodes(THRESHOLD)
         ''' si new event --> update'''
         if nodes:
             thought.update(kb, nodes)
@@ -70,45 +68,13 @@ def counts(kb):
                 thought.current_event = next_event
                 time.sleep(1)
                 logger.info('current event = %s' % thought.current_event)
-                fire(kb, next_event, FIRE_TIME)
+                kb.fire(next_event, FIRE_TIME)
 
-        clock(kb)
-
-
-# KB-THINKING methods
-#----------------------------
-
-def get_attractive_nodes(kb):
-     nodes = {(row[0], row[1]) for row in kb.conn.execute('''SELECT id, matter FROM %s WHERE matter>%f''' %(TABLENAME, THRESHOLD))}
-     return nodes
-
-def fire(kb, node_id, fire_time):
-    '''this methode actives the selected nodes'''
-    kb.wait_turn()
-
-    kb.conn.execute('''UPDATE %s SET active = %i WHERE id=?''' % (TABLENAME, fire_time), (node_id,))
-    kb.conn.commit()
-    #time.sleep(1/THOUGHT_RATE)
-
-def clock(kb):
-    ''' update the time each node keeps firing '''
-    kb.wait_turn()
-    kb.conn.execute('''UPDATE %s SET active = (SELECT active)-1 WHERE active>0''' % TABLENAME)
-    kb.conn.commit()
-
-def douse(kb):
-    '''this methode disactives the time-out nodes '''
-    kb.wait_turn()
-    kb.conn.execute('''UPDATE %s SET matter=0 WHERE active>0.1 ''' % TABLENAME)
-    kb.conn.commit()
+        kb.clock()
 
 
-def kill(kb, node_id):
-    '''this methode removes the selected nodes '''
-    kb.wait_turn()
-    kb.conn.execute('''DELETE FROM %s WHERE id=?''' % TABLENAME, (node_id,))
-    kb.conn.commit()
-
+# threading funtions :
+#=====================
 
 def thought_start(kb):
     global END
@@ -121,4 +87,3 @@ def thought_start(kb):
 def thought_stop():
     global END
     END = True
-
