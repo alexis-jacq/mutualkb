@@ -12,6 +12,8 @@ from kb import KBNAME, TABLENAME
 REASONER_RATE = 2 #Hz
 END = False
 DEFAULT_MODEL = 'K_myself'
+MUTUAL_MODELING_ORDER = 5
+
 
 # usefull objects :
 #==================
@@ -393,6 +395,12 @@ class Reasoner():
             if agent=='self' or agent == model.replace('_',' ').split()[-1]:
                 # model.replace('_',' ').split()[-1] gives the agent of the model
                 pass
+
+            # dont pass the mutual modeling level (to not add infinite models):
+            #------------------------------------------------------------------
+            elif len(model.replace(':',' ').split())>MUTUAL_MODELING_ORDER:
+                pass
+
             else:
 
                 # get the name of the model for the agent :
