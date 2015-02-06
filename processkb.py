@@ -157,24 +157,24 @@ class processKB:
             print('first adds')
 
             ''' basic tests ( classes )
-            self.add([[ 'self', 'rdf:type', 'robot'],['robot','rdfs:subClassOf','agent']],DEFAULT_MODEL,0.7)
-            self.add([['agent','rdfs:subClassOf','humanoide'],['human','rdfs:subClassOf','animals']],DEFAULT_MODEL,0.5)
+            self.add([[ 'self', 'rdf:type', 'robot'],['robot','rdfs:subClassOf','Agent']],DEFAULT_MODEL,0.7)
+            self.add([['Agent','rdfs:subClassOf','humanoide'],['human','rdfs:subClassOf','animals']],DEFAULT_MODEL,0.5)
             self.add([['robot','owl:equivalentClass','machine'],['machine','owl:equivalentClass','automate']],DEFAULT_MODEL,0.2)
             '''
             '''
             basic tests ( mutual knowledge )
-            self.add([['zoro', 'rdf:type', 'agent'], ['vincent', 'rdf:type', 'agent'], ['pierre', 'rdf:type', 'agent'], ['marc', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
+            self.add([['zoro', 'rdf:type', 'Agent'], ['vincent', 'rdf:type', 'Agent'], ['pierre', 'rdf:type', 'Agent'], ['marc', 'rdf:type', 'Agent']],DEFAULT_MODEL,0.5)
             self.add_specific([['zoro', 'knows', 'vincent'],['marc', 'knows', 'pierre']],DEFAULT_MODEL,0.5)
-            self.add([['superman', 'rdf:type', 'agent']],DEFAULT_MODEL,0.5)
+            self.add([['superman', 'rdf:type', 'Agent']],DEFAULT_MODEL,0.5)
             '''
 
-            story = True
+            story = False
 
             if story:
 
                 ''' Gruffalo background '''
-                self.add_common([[ 'mouse', 'rdf:type', 'agent'],['fox','rdf:type','agent']],DEFAULT_MODEL,1)
-                self.add_common([[ 'owl', 'rdf:type', 'agent'],['snake','rdf:type','agent']],DEFAULT_MODEL,1)
+                self.add_common([[ 'mouse', 'rdf:type', 'Agent'],['fox','rdf:type','Agent']],DEFAULT_MODEL,1)
+                self.add_common([[ 'owl', 'rdf:type', 'Agent'],['snake','rdf:type','Agent']],DEFAULT_MODEL,1)
 
                 ''' Gruffalo story '''
                 ''' ch.1 '''
@@ -195,9 +195,9 @@ class processKB:
                 idiot_model = ['M_myself:K_fox', 'M_myself:M_mouse:K_fox','M_myself:M_fox:K_mouse']
                 smart_model = ['M_myself:K_mouse']
 
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'fox']],idiot_model,0.8)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'fox']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],idiot_model,0.8)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],smart_model,0)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
 
                 # narator and mouse see that fox is scared:
                 self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],smart_model,0.8)
@@ -229,9 +229,9 @@ class processKB:
                 idiot_model = ['M_myself:K_owl', 'M_myself:M_mouse:K_owl','M_myself:M_owl:K_mouse']
                 smart_model = ['M_myself:K_mouse']
 
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'owl']],idiot_model,0.8)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'owl']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],idiot_model,0.8)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],smart_model,0)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
 
                 # narator and mouse see that owl is scared:
                 self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],smart_model,0.8)
@@ -263,9 +263,9 @@ class processKB:
                 idiot_model = ['M_myself:K_snake', 'M_myself:M_mouse:K_snake','M_myself:M_snake:K_mouse']
                 smart_model = ['M_myself:K_mouse']
 
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'snake']],idiot_model,0.9)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'snake']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],idiot_model,0.9)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],smart_model,0)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
 
                 # narator and mouse see that snake is scared:
                 self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],smart_model,0.9)
@@ -337,7 +337,8 @@ class processKB:
 
             else:
 
-                self.add([[ 'sally', 'rdf:type', 'agent'],['anne','rdf:type','agent']],DEFAULT_MODEL,1)
+                self.add([[ 'sally', 'rdf:type', 'Agent'],['anne','rdf:type','Agent']],DEFAULT_MODEL,1)
+                self.add([[ 'Agent', 'is', 'happy']],DEFAULT_MODEL,1)
 
                 model = ['M_myself:K_sally','M_myself:K_anne','K_myself']
 

@@ -19,9 +19,9 @@ DEFAULT_MODEL = 'K_myself'
 class OntoClass():
     ''' this class defines an object that encodes ontologic links
     between existing subjects/objects in the knowledge base'''
-    def __init__(self, name, modified):
+    def __init__(self, name, processed):
         self.name = name
-        self.modified = modified
+        self.processed = processed
         self.parents = set()
         self.children = set()
         self.instances = set()
@@ -30,7 +30,14 @@ class OntoClass():
 # recursive functions for ontologic inheritances :
 #=================================================
 
-def addequivalent(equivalentclasses, cls, equivalent, llh, memory=None):
+def addproperties(name, active_properties, passive_properties, llh1, newproperties):
+    '''for inheritance of non-ontologic properties'''
+    for p,o,llh2 in active_properties:
+        newproperties.append((name, p, o, max(0.5, min(llh1,llh2))))
+    for s,p,llh2 in passive_properties:
+        newproperties.append((s, p, name, max(0.5, min(llh1,llh2))))
+
+def addequivalent(equivalentclasses, cls, equivalent, llh, active_properties, passive_properties, newproperties, memory=None ):
     '''
     propagation of equivalence properties :
     ---------------------------------------
@@ -69,12 +76,14 @@ def addequivalent(equivalentclasses, cls, equivalent, llh, memory=None):
 
     if equivalent not in memory:
         if cls.name == equivalent.name:
-            llh = 1 # re-find why I did that...
+            llh = 1 # need to remind why did I do that...
 
         memory.add(equivalent)
 
         equivalentclasses.append((cls.name, equivalent.name, llh))
         cls.equivalents.add((equivalent, llh)) # update classes
+
+        addproperties(equivalent.name, active_properties, passive_properties, llh, newproperties)
 
         # reflexive property :
         equivalent.equivalents.add((cls, llh)) # update classes
@@ -82,10 +91,10 @@ def addequivalent(equivalentclasses, cls, equivalent, llh, memory=None):
         # transitive property :
         for equ, llh2 in frozenset(equivalent.equivalents):
             llh3 = max(0.5, min(llh, llh2))
-            addequivalent(equivalentclasses, cls, equ, llh3, memory)
+            addequivalent(equivalentclasses, cls, equ, llh3, active_properties, passive_properties, newproperties, memory)
 
 
-def addsubclassof(subclassof, scls, cls, llh):
+def addsubclassof(subclassof, scls, cls, llh, active_properties, passive_properties, newproperties):
     '''
     propagation of inclusions :
     ---------------------------
@@ -100,13 +109,15 @@ def addsubclassof(subclassof, scls, cls, llh):
     cls.children.add((scls, llh))
     scls.parents.add((cls, llh))
 
+    # no (non-ontologic)properties inheritance from child to parents...
+
     # transitivity :
     for p, llh2 in frozenset(cls.parents):
         llh3 = max(0.5,min(llh,llh2))
-        addsubclassof(subclassof, scls, p, llh3)
+        addsubclassof(subclassof, scls, p, llh3, active_properties, passive_properties, newproperties)
 
 
-def addoverclassof(subclassof, cls, ocls, llh):
+def addoverclassof(subclassof, cls, ocls, llh, active_properties, passive_properties, newproperties):
     '''
     back-track propagation of inclusion :
     -------------------------------------
@@ -125,13 +136,15 @@ def addoverclassof(subclassof, cls, ocls, llh):
     ocls.children.add((cls, llh))
     cls.parents.add((ocls, llh))
 
+    addproperties(cls.name, active_properties, passive_properties, llh, newproperties)
+
     # transitivity :
     for child, llh2 in frozenset(cls.children):
         llh3 = max(0.5, min(llh, llh2))
-        addoverclassof(subclassof, child, cls, llh3)
+        addoverclassof(subclassof, child, cls, llh3, active_properties, passive_properties, newproperties)
 
 
-def addinstance(rdftype, instance, cls, llh):
+def addinstance(rdftype, instance, cls, llh, active_properties, passive_properties, newproperties):
     '''
     propagation of instances :
     ---------------------------
@@ -144,9 +157,11 @@ def addinstance(rdftype, instance, cls, llh):
 
     rdftype.append((instance, cls.name, llh))
 
+    # no (non-ontologic)properties inheritance from instance to classes...
+
     for par, llh2 in cls.parents:
         llh3 = max(0.5, min(llh, llh2))
-        addinstance(rdftype, instance, par, llh3)
+        addinstance(rdftype, instance, par, llh3, active_properties, passive_properties, newproperties)
 
 # REASONER :
 #===========
@@ -242,30 +257,44 @@ class Reasoner():
         newrdftype = []
         newsubclassof = []
         newequivalentclasses=[]
+        newproperties = []
 
         for name, cls in onto.items(): # just no-processed onto.items() could be interesting
-            if cls.modified:
+            if not cls.processed :
+
+                # get all (not necessary onthologic) properies of the class:
+                active_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
+                                    '''SELECT predicate, object, likelihood FROM %s
+                                    WHERE subject="%s" AND model="%s"''' % (TABLENAME, name, model))}
+
+                passive_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
+                                    '''SELECT subject, predicate, likelihood FROM %s
+                                    WHERE object="%s" AND model="%s"''' % (TABLENAME, name, model))}
+
                 for p, llh in frozenset(cls.parents):
-                    addsubclassof(newsubclassof, cls, p, llh)
-                for i, llh in cls.instances: 
-                    addinstance(newrdftype, i, cls, llh)
+                    addsubclassof(newsubclassof, cls, p, llh, active_properties, passive_properties, newproperties)
+                for i, llh in cls.instances:
+                    addproperties(i, active_properties, passive_properties, llh, newproperties)
+                    addinstance(newrdftype, i, cls, llh, active_properties, passive_properties, newproperties)
+                for c, llh in cls.children:
+                    addproperties(c.name, active_properties, passive_properties, llh, newproperties)
 
                 for equivalent, llh in frozenset(cls.equivalents):
-                    addequivalent(newequivalentclasses, cls, equivalent, max(0.5,llh))
+                    addequivalent(newequivalentclasses, cls, equivalent, max(0.5,llh), active_properties, passive_properties, newproperties)
 
                 for equivalent, llh in cls.equivalents:
                     if equivalent.name!=cls.name:
                         for p, llh2 in frozenset(cls.parents):
                             llh3 = max(0.5,min(llh,llh2))
-                            addsubclassof(newsubclassof, equivalent, p, llh3)
+                            addsubclassof(newsubclassof, equivalent, p, llh3, active_properties, passive_properties, newproperties)
                         for c, llh2 in frozenset(cls.children):
                             llh3 = max(0.5,min(llh,llh2))
-                            addoverclassof(newsubclassof, c, equivalent, llh3)
+                            addoverclassof(newsubclassof, c, equivalent, llh3, active_properties, passive_properties, newproperties)
                         for i, llh2 in cls.instances:
                             llh3 = max(0.5,min(llh,llh2))
-                            addinstance(newrdftype, i, equivalent, llh3)
+                            addinstance(newrdftype, i, equivalent, llh3, active_properties, passive_properties, newproperties)
 
-        return newrdftype, newsubclassof, newequivalentclasses
+        return newrdftype, newsubclassof, newequivalentclasses, newproperties
 
     def symmetric_statements(self, model): # add likelihood
 
@@ -299,11 +328,11 @@ class Reasoner():
         models = self.get_models()
 
         for model in models:
-            rdftype, subclassof, equivalentclasses = self.get_missing_taxonomy_stmts(model)
+            rdftype, subclassof, equivalentclasses, inheritedproperties = self.get_missing_taxonomy_stmts(model)
             self.newstmts += [(i, "rdf:type", c, model, llh) for i,c,llh in rdftype]
             self.newstmts += [(cc, "rdfs:subClassOf", cp, model, llh) for cc,cp,llh in subclassof]
             self.newstmts += [(eq1, "owl:equivalentClass", eq2, model, llh) for eq1,eq2,llh in equivalentclasses]
-
+            self.newstmts += [(s, p, o, model, llh) for s,p,o,llh in inheritedproperties]
             self.newstmts += self.symmetric_statements(model)
 
 
@@ -316,28 +345,28 @@ class Reasoner():
         with db:
             generalModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
                     '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND object in
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND predicate IN ('%s')
                     AND likelihood>=0.5
                     ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.GENERAL_KNOWLEDGE_PREDICATES)))}
 
             visualModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
                     '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND object in
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND predicate IN ('%s')
                     AND likelihood>=0.5
                     ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.VISUAL_KNOWLEDGE_PREDICATES)))}
 
             selfModelings = {(row[0], row[1], row[2]) for row in db.execute(
                     '''SELECT DISTINCT subject, model, likelihood FROM %s WHERE subject!='self' AND subject in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     ''' % (TABLENAME, TABLENAME))} | {(row[0], row[1], row[2]) for row in db.execute(
                     '''SELECT DISTINCT object, model, likelihood FROM %s WHERE object!='self' AND object in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='agent'))
+                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     ''' % (TABLENAME, TABLENAME))}
 
 
@@ -382,7 +411,7 @@ class Reasoner():
                                                     AND model='%s'
                                                     AND likelihood>=0.5)
                             OR (predicate='is' AND object='common' AND likelihood>=0.5) )
-                            AND  modified=1''' % (TABLENAME, DEFAULT_MODEL))}
+                            AND  modified=1''' % (TABLENAME, model))}
 
                 shared_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, likelihood FROM %s
@@ -393,14 +422,13 @@ class Reasoner():
                                                     AND likelihood>=0.5)
                             AND  modified=1 ''' % (TABLENAME, model))}
 
-
                 self_description = {(row[0], row[1], row[2]) for row in self.db.execute(
                             '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
                             AND model="%s" AND modified=1 ''' % (TABLENAME, agent, model))}
 
                 # make sure agent is conscious to be an agent :
                 #----------------------------------------------
-                self.newstmts += [('self', 'rdf:type', 'agent', new_model, llh)]
+                self.newstmts += [('self', 'rdf:type', 'Agent', new_model, llh)]
 
                 # instill in the agent his supposed knowledge :
                 #----------------------------------------------
@@ -449,7 +477,7 @@ class Reasoner():
 
                 # the modeler knows that the agent is an agent:
                 #----------------------------------------------
-                self.newstmts += [(agent, 'rdf:type', 'agent', model, llh)]
+                self.newstmts += [(agent, 'rdf:type', 'Agent', model, llh)]
 
 
         for agent1, agent2, model, llh in visualModelings:
@@ -480,7 +508,7 @@ class Reasoner():
 
                 # agent1 knows agent2 is an agent :
                 #----------------------------------
-                self.newstmts += [(agent2, 'rdf:type', 'agent', new_model2, llh)]
+                self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model2, llh)]
 
                 # get the name of the model for agent2 modeled by agent1:
                 #--------------------------------------------------------
@@ -495,7 +523,7 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [('self', 'rdf:type', 'agent', new_model1, llh)]
+                    self.newstmts += [('self', 'rdf:type', 'Agent', new_model1, llh)]
 
                     # transfere to agent1 VISIBLE information about agent2:
                     #------------------------------------------------------
@@ -503,8 +531,8 @@ class Reasoner():
 
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
-                self.newstmts += [(agent1, 'rdf:type', 'agent', model, llh)]
-                self.newstmts += [(agent2, 'rdf:type', 'agent', model, llh)]
+                self.newstmts += [(agent1, 'rdf:type', 'Agent', model, llh)]
+                self.newstmts += [(agent2, 'rdf:type', 'Agent', model, llh)]
 
 
         for agent1, agent2, model, llh in generalModelings:
@@ -535,7 +563,7 @@ class Reasoner():
 
                 # agent1 knows agent2 is an agent :
                 #----------------------------------
-                self.newstmts += [(agent2, 'rdf:type', 'agent', new_model2, llh)]
+                self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model2, llh)]
 
                 # get the name of the model for agent2 modeled by agent1:
                 #--------------------------------------------------------
@@ -550,7 +578,7 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [('self', 'rdf:type', 'agent', new_model1, llh)]
+                    self.newstmts += [('self', 'rdf:type', 'Agent', new_model1, llh)]
 
                     # transfere to agent1 GENERAL information about agent2:
                     #------------------------------------------------------
@@ -558,8 +586,8 @@ class Reasoner():
 
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
-                self.newstmts += [(agent1, 'rdf:type', 'agent', model, llh)]
-                self.newstmts += [(agent2, 'rdf:type', 'agent', model, llh)]
+                self.newstmts += [(agent1, 'rdf:type', 'Agent', model, llh)]
+                self.newstmts += [(agent2, 'rdf:type', 'Agent', model, llh)]
 
 
     # CONTRARY/CONFLICTS methods :
@@ -579,12 +607,13 @@ class Reasoner():
             with self.db:
                 self.db.execute("DELETE FROM %s" % TABLENAME)
                 self.db.executemany('''INSERT INTO %s
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''' % TABLENAME,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''' % TABLENAME,
                     res)
             return True
         except sqlite3.OperationalError:
         # can happen if the main application is in the middle of clearing the
         # database (ie, DROP triples)
+            print 'fuck!!!'
             return False
 
 
@@ -599,7 +628,7 @@ class Reasoner():
 
         if len(self.newstmts)<6:
             print('stmts < 6 !!!')
-        nodes = [[ s, p, o, model, model.replace('_',' ').split()[-1], "%s%s%s%s"%(s,p,o, model)] for s,p,o,model,llh in self.newstmts]
+        nodes = [[ s, p, o, model, "%s%s%s%s"%(s,p,o, model)] for s,p,o,model,llh in self.newstmts]
         ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o,model,llh in self.newstmts]
         llh_nodes = [[ llh, "%s%s%s%s"%(s,p,o, model) ] for s,p,o,model,llh in self.newstmts]
 
@@ -611,8 +640,8 @@ class Reasoner():
                       WHERE modified=1''' % TABLENAME)
 
         self.shareddb.executemany('''INSERT OR IGNORE INTO %s
-             (subject, predicate, object, model, agent, id)
-             VALUES (?, ?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
+             (subject, predicate, object, model, id)
+             VALUES (?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
         self.shareddb.executemany('''UPDATE %s SET infered=1 WHERE id=?''' % TABLENAME, ids)
         # after this, all the infered nodes (reached by reason) are set with 'infered'=1 (default value)
 

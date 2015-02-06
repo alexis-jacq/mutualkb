@@ -118,10 +118,6 @@ class KB:
 
                 self.conn.execute(''' UPDATE %s SET likelihood=%f 
                                     WHERE id=?''' % (TABLENAME, likelihood), [node])
-
-        agent = model.replace('_',' ').split()[-1]
-        self.conn.executemany('''UPDATE %s SET agent="%s" WHERE id=?''' % (TABLENAME, agent), ids)
-
         self.save()
 
 
