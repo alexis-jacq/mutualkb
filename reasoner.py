@@ -175,6 +175,7 @@ class Reasoner():
     INHERITANCE_PREDICATES = {"rdf:subclassof"}
     OCCURENCE_PREDICATES = {"rdf:type"}
     EQUIVALENC_PREDICATES = {"owl:equivalentclasses"}
+    ONTOLOGIC_PREDICATES = SYMMETRIC_PREDICATES|INHERITANCE_PREDICATES|OCCURENCE_PREDICATES|EQUIVALENC_PREDICATES
 
     # mutual modeling keywords :
     VISUAL_KNOWLEDGE_PREDICATES = {"sees","imagines","looks"} # imply a visual knowledge of the object
@@ -264,14 +265,17 @@ class Reasoner():
         for name, cls in onto.items(): # just no-processed onto.items() could be interesting
             if not cls.processed :
 
-                # get all (not necessary onthologic) properies of the class:
+                # get all NON ONTOLOGIC !!!!! properies of the class:
                 active_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
                                     '''SELECT predicate, object, likelihood FROM %s
-                                    WHERE subject="%s" AND model="%s"''' % (TABLENAME, name, model))}
+                                    WHERE subject="%s" AND model="%s" AND predicate NOT IN ("%s")'''
+                                    % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
 
                 passive_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
                                     '''SELECT subject, predicate, likelihood FROM %s
-                                    WHERE object="%s" AND model="%s"''' % (TABLENAME, name, model))}
+                                    WHERE object="%s" AND model="%s" AND predicate NOT IN ("%s")'''
+                                    % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
+
 
                 for p, llh in frozenset(cls.parents):
                     addsubclassof(newsubclassof, cls, p, llh, active_properties, passive_properties, newproperties)
