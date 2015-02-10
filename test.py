@@ -10,7 +10,7 @@ from minimalkb import __version__
 from Queue import Empty
 
 DEFAULT_MODEL = processkb.DEFAULT_MODEL
-REASONING_DELAY = 0.2
+REASONING_DELAY = 2.5
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -51,6 +51,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.add([[ 'mouse', 'sees', 'snake']], 0.6)
         trust = self.kb.get_trust('mouseseessnakeK_myself')
         self.assertTrue(trust-0.692308 < 0.00001)
+        self.assertTrue(trust-0.692308 > -0.00001)
         '''
         self.kb.clear()
         self.pkb.add([[ 'mouse', 'sees', 'snake']], 0.5)
@@ -93,7 +94,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.kb.clear()
 
-        self.pkb.add([[ 'mouse', 'sees', 'snake']], 1.0)
+        self.pkb.add([[ 'mouse', 'sees', 'snake']])
         self.assertTrue([[ 'mouse', 'sees', 'snake']] in self.pkb)
         self.assertFalse([[ 'fox', 'sees', 'snake']] in self.pkb)
 
@@ -101,10 +102,46 @@ class TestSequenceFunctions(unittest.TestCase):
     # REASONER TEST
     #==============
 
-    def test_ontologic_inheritance(self):
+    def test_ontologic_upstairs(self):
 
         self.kb.clear()
+        self.pkb.add([['snake', 'rdf:type', 'Reptile']],0.7)
+        self.pkb.add([['Reptile', 'rdfs:subClassOf', 'Animal']],1.0)
+        self.pkb.add([['Animal', 'rdfs:subClassOf', 'Alive']],0.4)
 
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY)
+        self.pkb.stop_services()
+
+        # check existances
+        #self.assertTrue([['snake', 'rdf:type', 'Alive']] in self.pkb)
+        self.assertTrue([['snake', 'rdf:type', 'Animal']] in self.pkb)
+        self.assertTrue([['snake', 'rdf:type', 'Animal'],['snake', 'rdf:type', 'Alive']] in self.pkb)
+        self.assertTrue([['Reptile', 'rdfs:subClassOf', 'Alive']] in self.pkb)
+        self.assertFalse([['Reptile', 'rdf:type', 'Alive']] in self.pkb)
+        self.assertFalse([['Alive', 'rdfs:subClassOf', 'Reptile']] in self.pkb)
+        self.assertFalse([['Alive', 'rdfs:subClassOf', 'Animal']] in self.pkb)
+
+        # check trust-value propagations
+        t1 = self.kb.get_trust('snakerdf:typeAnimalK_myself')
+        t2 = self.kb.get_trust('snakerdf:typeAliveK_myself')
+        t3 = self.kb.get_trust('Reptilerdfs:subClassOfK_myself')
+        self.assertTrue(t1==0.7)
+        self.assertTrue(t2==0.5)
+        self.assertTrue(t3==0.5)
+
+
+
+'''
+    def test_equivalent_classes_transitivity(self):
+        self.kb += 'myself rdf:type Robot'
+        self.kb += ['Robot owl:equivalentClass Machine', 'Machine owl:equivalentClass Automaton']
+        self.kb += 'PR2 rdfs:subClassOf Automaton'
+        time.sleep(REASONING_DELAY)
+        self.assertTrue('Robot owl:equivalentClass Automaton' in self.kb)
+        self.assertItemsEqual(self.kb.classesof("myself"), [u'Robot', u'Machine', u'Automaton'])
+        self.assertTrue('PR2 rdfs:subClassOf Robot' in self.kb)
+'''
 
 if __name__ == '__main__':
 

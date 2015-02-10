@@ -38,9 +38,9 @@ class processKB:
         if trust or trust==0:
             for model in list(self.models):
                 self.kb.add(stmts, model, trust)
-            else:
-                for model in list(self.models):
-                    self.kb.add(stmts, model)
+        else:
+            for model in list(self.models):
+                self.kb.add(stmts, model)
 
         self.kb.save()
 
