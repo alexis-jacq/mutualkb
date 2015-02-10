@@ -222,15 +222,15 @@ class Reasoner():
         equivalentclasses = None
         with db:
             rdftype = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT subject, object, likelihood, modified FROM %s 
+                    '''SELECT subject, object, trust, modified FROM %s 
                        WHERE (predicate='rdf:type' AND model=?)
                     ''' % TABLENAME, [model])}
             subclassof = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT subject, object, likelihood, modified FROM %s
+                    '''SELECT subject, object, trust, modified FROM %s
                        WHERE (predicate='rdfs:subClassOf' AND model=?)
                     ''' % TABLENAME, [model])}
             equivalentclasses = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT subject, object, likelihood, modified FROM %s
+                    '''SELECT subject, object, trust, modified FROM %s
                        WHERE (predicate='owl:equivalentClass' AND model=?)
                     ''' % TABLENAME, [model])}
 
@@ -267,12 +267,12 @@ class Reasoner():
 
                 # get all NON ONTOLOGIC !!!!! properies of the class:
                 active_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
-                                    '''SELECT predicate, object, likelihood FROM %s
+                                    '''SELECT predicate, object, trust FROM %s
                                     WHERE subject="%s" AND model="%s" AND predicate NOT IN ("%s")'''
                                     % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
 
                 passive_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
-                                    '''SELECT subject, predicate, likelihood FROM %s
+                                    '''SELECT subject, predicate, trust FROM %s
                                     WHERE object="%s" AND model="%s" AND predicate NOT IN ("%s")'''
                                     % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
 
@@ -302,11 +302,11 @@ class Reasoner():
 
         return newrdftype, newsubclassof, newequivalentclasses, newproperties
 
-    def symmetric_statements(self, model): # add likelihood
+    def symmetric_statements(self, model): # add trust
 
         with self.db:
             stmts = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
-                '''SELECT subject, predicate, object, likelihood FROM %s 
+                '''SELECT subject, predicate, object, trust FROM %s 
                 WHERE (predicate IN ('%s') AND model=?)
                 ''' % (TABLENAME, "', '".join(self.SYMMETRIC_PREDICATES)), [model])}
 
@@ -350,28 +350,28 @@ class Reasoner():
 
         with db:
             generalModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
+                    '''SELECT DISTINCT subject, object, model, trust FROM %s WHERE subject!='self' AND subject in
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND object in
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND predicate IN ('%s')
-                    AND likelihood>=0.5
+                    AND trust>=0.5
                     ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.GENERAL_KNOWLEDGE_PREDICATES)))}
 
             visualModelings = {(row[0], row[1], row[2], row[3]) for row in db.execute(
-                    '''SELECT DISTINCT subject, object, model, likelihood FROM %s WHERE subject!='self' AND subject in
+                    '''SELECT DISTINCT subject, object, model, trust FROM %s WHERE subject!='self' AND subject in
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND object in
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     AND predicate IN ('%s')
-                    AND likelihood>=0.5
+                    AND trust>=0.5
                     ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.VISUAL_KNOWLEDGE_PREDICATES)))}
 
             selfModelings = {(row[0], row[1], row[2]) for row in db.execute(
-                    '''SELECT DISTINCT subject, model, likelihood FROM %s WHERE subject!='self' AND subject in 
+                    '''SELECT DISTINCT subject, model, trust FROM %s WHERE subject!='self' AND subject in 
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     ''' % (TABLENAME, TABLENAME))} | {(row[0], row[1], row[2]) for row in db.execute(
-                    '''SELECT DISTINCT object, model, likelihood FROM %s WHERE object!='self' AND object in 
+                    '''SELECT DISTINCT object, model, trust FROM %s WHERE object!='self' AND object in 
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     ''' % (TABLENAME, TABLENAME))}
 
@@ -416,26 +416,26 @@ class Reasoner():
                 # get the knowledge that the agent is supposed to have:
                 #------------------------------------------------------
                 common_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
-                            '''SELECT DISTINCT subject, predicate, object, likelihood FROM %s
+                            '''SELECT DISTINCT subject, predicate, object, trust FROM %s
                             WHERE ( id IN (
                             SELECT DISTINCT subject WHERE predicate='is'
                                                     AND object='common'
                                                     AND model='%s'
-                                                    AND likelihood>=0.5)
-                            OR (predicate='is' AND object='common' AND likelihood>=0.5) )
+                                                    AND trust>=0.5)
+                            OR (predicate='is' AND object='common' AND trust>=0.5) )
                             AND  modified=1''' % (TABLENAME, model))}
 
                 shared_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
-                            '''SELECT DISTINCT subject, predicate, object, likelihood FROM %s
+                            '''SELECT DISTINCT subject, predicate, object, trust FROM %s
                             WHERE id IN (
                             SELECT DISTINCT subject WHERE predicate='is'
                                                     AND object='shared'
                                                     AND model='%s'
-                                                    AND likelihood>=0.5)
+                                                    AND trust>=0.5)
                             AND  modified=1 ''' % (TABLENAME, model))}
 
                 self_description = {(row[0], row[1], row[2]) for row in self.db.execute(
-                            '''SELECT DISTINCT predicate, object, likelihood FROM %s WHERE subject="%s"
+                            '''SELECT DISTINCT predicate, object, trust FROM %s WHERE subject="%s"
                             AND model="%s" AND modified=1 ''' % (TABLENAME, agent, model))}
 
                 # make sure agent is conscious to be an agent :
@@ -657,18 +657,18 @@ class Reasoner():
         self.shareddb.executemany('''UPDATE %s SET infered=1 WHERE id=?''' % TABLENAME, ids)
         # after this, all the infered nodes (reached by reason) are set with 'infered'=1 (default value)
 
-        # update the likelihood just for the infered nodes
+        # update the trust just for the infered nodes
 
         for llh, node in llh_nodes:
-            cur = self.shareddb.execute('''SELECT likelihood FROM %s WHERE id=? '''% TABLENAME, [node])
+            cur = self.shareddb.execute('''SELECT trust FROM %s WHERE id=? '''% TABLENAME, [node])
             lh = cur.fetchone()[0]
-            likelihood = llh
+            trust = llh
             if (lh-llh)*(lh-llh)==1:
                 pass
             else:
-                likelihood = lh*llh/( lh*llh + (1-lh)*(1-llh) )
-            self.shareddb.execute(''' UPDATE %s SET likelihood=%f
-                                WHERE id=? AND infered=1''' % (TABLENAME, likelihood), [node])
+                trust = lh*llh/( lh*llh + (1-lh)*(1-llh) )
+            self.shareddb.execute(''' UPDATE %s SET trust=%f
+                                WHERE id=? AND infered=1''' % (TABLENAME, trust), [node])
             # not so easy :
             #self.shareddb.execute(''' UPDATE %s SET modified=1
             #                    WHERE id=? AND infered=1''' % (TABLENAME), [node])

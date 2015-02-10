@@ -12,26 +12,30 @@ TABLE = ''' CREATE TABLE IF NOT EXISTS %s
             "predicate" TEXT NOT NULL ,
             "object" TEXT NOT NULL ,
             "model" TEXT NOT NULL ,
-            "likelihood" FLOAT DEFAULT 0.5 NOT NULL,
+            "trust" FLOAT DEFAULT 0.5 NOT NULL,
             "active" INT DEFAULT 0 NOT NULL,
             "matter" FLOAT DEFAULT 0.5 NOT NULL,
             "infered" BOOLEAN DEFAULT 1 NOT NULL,
             "modified" BOOLEAN DEFAULT 1 NOT NULL,
             "id" TEXT PRIMARY KEY NOT NULL UNIQUE)'''
 
-DEFAULT_MODEL = 'K_myself'
+#DEFAULT_MODEL = 'K_myself'
 
 
 class KB:
 
     def __init__(self):
         self.conn = sqlite3.connect(KBNAME)
-        self.create_kb()
+        self.create()
+        self.clear()
         logger.info('new knowledge base created')
 
-    def create_kb(self):
+    def create(self):
         with self.conn:
             self.conn.execute(TABLE % TABLENAME)
+
+    def clear(self):
+        with self.conn:
             self.conn.execute('''DELETE FROM %s''' % TABLENAME)
 
     def save(self):
@@ -53,13 +57,13 @@ class KB:
     # ADD methods
     #-------------------------
 
-    def add(self, stmts, model, likelihood=None):
+    def add(self, stmts, model, trust=None):
         ''' stmts = statements = list of triplet 'subject, predicate, object'. ex: [[ s1, p1, o1], [s2, p2, o2], ...]
-        this methode adds nodes to the table with statments attached to the selected model and increases likelihoods
+        this methode adds nodes to the table with statments attached to the selected model and increases trusts
         it returns a list of value that measur the importance of the added nodes to capt attention'''
 
-        if likelihood or likelihood==0:
-            llh = likelihood
+        if trust or trust==0:
+            llh = trust
         else:
             llh = 0.5
 
@@ -89,7 +93,7 @@ class KB:
         for node_id in ids:
             cursor=self.conn.cursor()
             try:
-                cursor.execute('''SELECT likelihood FROM %s WHERE (id = ?)''' % TABLENAME, node_id)
+                cursor.execute('''SELECT trust FROM %s WHERE (id = ?)''' % TABLENAME, node_id)
                 hold_llh = cursor.fetchone()[0]
             except TypeError:
                 hold_llh = 0
@@ -104,35 +108,36 @@ class KB:
         self.conn.executemany('''UPDATE %s SET modified = 1
                             WHERE id=?''' % TABLENAME, ids)
 
-        if likelihood or likelihood==0:
+        if trust or trust==0:
 
-            llh = likelihood
+            llh = trust
             for node in node_ids:
-                cur = self.conn.execute('''SELECT likelihood FROM %s WHERE id=?'''% TABLENAME, [node])
+                cur = self.conn.execute('''SELECT trust FROM %s WHERE id=?'''% TABLENAME, [node])
                 lh = cur.fetchone()[0]
-                likelihood = llh
+                trust = llh
                 if(lh-llh)*(lh-llh) == 1:
+                    # choose the new one
                     pass
                 else:
-                    likelihood = lh*llh/( lh*llh + (1-lh)*(1-llh) )
+                    trust = lh*llh/( lh*llh + (1-lh)*(1-llh) )
 
-                self.conn.execute(''' UPDATE %s SET likelihood=%f 
-                                    WHERE id=?''' % (TABLENAME, likelihood), [node])
+                self.conn.execute(''' UPDATE %s SET trust=%f 
+                                    WHERE id=?''' % (TABLENAME, trust), [node])
         self.save()
 
 
-    def sub(self, stmts, model, unlikelihood=None):
-        ''' the unlikeliihood is the likelihood for the statement to be false, for ex, the likelihood of a contrary statement '''
-        '''stmts = this methode decreases likelihoods of nodes with statments attached to the selected model '''
+    def sub(self, stmts, model, untrust=None):
+        ''' the unlikeliihood is the trust for the statement to be false, for ex, the trust of a contrary statement '''
+        '''stmts = this methode decreases trusts of nodes with statments attached to the selected model '''
 
         self.wait_turn
 
         ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
 
-        if unlikelihood:
-            self.conn.executemany('''UPDATE %s SET likelihood=((SELECT likelihood)*(1-%f)
-                          /((SELECT likelihood)*(1-%f) + (1-(SELECT likelihood))*(%f))) 
-                          WHERE id=?''' % (TABLENAME, unlikelihood, unlikelihood, unlikelihood) , ids)
+        if untrust:
+            self.conn.executemany('''UPDATE %s SET trust=((SELECT trust)*(1-%f)
+                          /((SELECT trust)*(1-%f) + (1-(SELECT trust))*(%f))) 
+                          WHERE id=?''' % (TABLENAME, untrust, untrust, untrust) , ids)
         self.save()
 
 
@@ -172,11 +177,37 @@ class KB:
     # TEST methods
     #---------------------------------
 
-    def testumpty(self):
+    def isUmpty(self):
         try:
-            test = {row[0] for row in self.conn.execute('''SELECT subject FROM %s
-                WHERE (predicate='ise')
-                ''' % TABLENAME )}
+            test = self.conn.execute('''SELECT * FROM %s''' % TABLENAME )
         except sqlite3.OperationalError:
             test = {}
+        if test:
+            return False
+        else:
+            return True
+
+    def get_trust(self, node_id):
+        trust = self.conn.execute('''SELECT trust FROM %s WHERE id="%s" '''%(TABLENAME, node_id))
+        return trust.fetchone()[0]
+
+
+    def contains(self, stmts, model):
+
+        node_ids = [("%s%s%s%s"%(s,p,o, model)) for s,p,o in stmts]
+
+        test = True
+        for node_id in node_ids:
+            node = self.conn.execute('''SELECT * FROM %s WHERE id="%s" '''%(TABLENAME, node_id))
+            if not node.fetchone()==None:
+                pass
+            else:
+                test = False
+                break
+
         return test
+
+
+
+
+

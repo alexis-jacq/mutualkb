@@ -14,120 +14,97 @@ from thought import thought_start, thought_stop
 import kb
 #import conflictFinder
 
-DEFAULT_MODEL = ['K_myself']
+DEFAULT_MODEL = 'K_myself'
 THRESHOLD = 0.2
 
 class processKB:
 
-    def __init__(self):
+    def __init__(self, kb):
 
-        self.kb = kb.KB()
+        self.kb = kb
 
         #self.conflicts = conflictFinder.conflicts() 
 
-        self.models = {DEFAULT_MODEL[0]}
+        self.models = {DEFAULT_MODEL}
 
-        self.start_services()
+        #self.start_services()
 
 
 
     # ADD methods :
     #-------------------------------------------------
-    def add(self, stmts, models=None, likelihood=None):
+    def add(self, stmts, trust=None):
 
-        if likelihood or likelihood==0:
-            if models:
-                for model in models:
-                    self.kb.add(stmts, model, likelihood)
+        if trust or trust==0:
+            for model in list(self.models):
+                self.kb.add(stmts, model, trust)
             else:
-                self.kb.add(stmts, DEFAULT_MODEL, likelihood)
-        else:
-            if models:  
-                for model in models:
+                for model in list(self.models):
                     self.kb.add(stmts, model)
-            else:
-                self.kb.add(stmts, DEFAULT_MODEL)
 
         self.kb.save()
 
-    def add_shared(self, stmts, models=None, likelihood=None):
+    def add_shared(self, stmts, trust=None):
 
-        if likelihood or likelihood==0:
-            if models:
-                for model in models:
-                    self.kb.add(stmts, model, likelihood)
-                    ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-                    for node_id in ids:
-                        self.kb.add([['%s'%(node_id), 'is', 'shared']], model, likelihood)
-            else:
-                self.kb.add(stmts, DEFAULT_MODEL, likelihood)
+        if trust or trust==0:
+            for model in list(self.models):
+                self.kb.add(stmts, model, trust)
                 ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
                 for node_id in ids:
-                    self.kb.add([['%s'%(node_id), 'is', 'shared']], DEFAULT_MODEL, likelihood)
+                    self.kb.add([['%s'%(node_id), 'is', 'shared']], model, trust)
         else:
-            if models:
-                for model in models:
-                    self.kb.add(stmts, model)
-                    ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-                    for node_id in ids:
-                        self.kb.add([['%s'%(node_id), 'is', 'shared']],model)
-            else:
-                self.kb.add(stmts, DEFAULT_MODEL)
+            for model in list(self.models):
+                self.kb.add(stmts, model)
                 ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
                 for node_id in ids:
-                    self.kb.add([['%s'%(node_id), 'is', 'shared']],DEFAULT_MODEL)
+                    self.kb.add([['%s'%(node_id), 'is', 'shared']],model)
 
         self.kb.save()
 
-    def add_common(self, stmts, models=None, likelihood=None):
+    def add_common(self, stmts, trust=None):
 
-        if likelihood or likelihood==0:
-            if models:
-                for model in models:
-                    self.kb.add(stmts, model, likelihood)
-                    ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-                    for node_id in ids:
-                        self.kb.add([['%s'%(node_id), 'is', 'common']], model, likelihood)
-            else:
-                self.kb.add(stmts, DEFAULT_MODEL, likelihood)
+        if trust or trust==0:
+            for model in list(self.models):
+                self.kb.add(stmts, model, trust)
                 ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
                 for node_id in ids:
-                    self.kb.add([['%s'%(node_id), 'is', 'common']], DEFAULT_MODEL, likelihood)
+                    self.kb.add([['%s'%(node_id), 'is', 'common']], model, trust)
         else:
-            if models:
-                for model in models:
-                    self.kb.add(stmts, model)
-                    ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
-                    for node_id in ids:
-                        self.kb.add([['%s'%(node_id), 'is', 'common']],model)
-            else:
-                self.kb.add(stmts, DEFAULT_MODEL)
+            for model in list(self.models):
+                self.kb.add(stmts, model)
                 ids = [("%s%s%s%s"%(s,p,o, model),) for s,p,o in stmts]
                 for node_id in ids:
-                    self.kb.add([['%s'%(node_id), 'is', 'common']],DEFAULT_MODEL)
+                     self.kb.add([['%s'%(node_id), 'is', 'common']],model)
 
         self.kb.save()
 
 
     # SUB methods :
-    #--------------------------------------------------
-    def sub(self, stmts, models=None, unlikelihood=None):
+    #--------------
+    def sub(self, stmts, untrust=None):
 
-        if unlikelihood or unlikelihood==0:
-            if models:
-                for model in models:
-                    self.kb.sub(stmts, model, unlikelihood)
-            else:
-                self.kb.sub(stmts, DEFAULT_MODEL)
+        if untrust or untrust==0:
+            for model in list(self.models):
+                self.kb.sub(stmts, model, untrust)
         else:
-            if models:
-                for model in models:
-                    self.kb.sub(stmts, model)
-            else:
-                self.kb.sub(stmts, DEFAULT_MODEL)
+            for model in list(self.models):
+                self.kb.sub(stmts, model)
 
         self.kb.save()
 
+
+    # TEST methods :
+    #---------------
+    def __contains__(self, stmts):
+
+        test = True
+        for model in list(self.models):
+            if self.kb.contains(stmts,model):
+                pass
+            else:
+                test = False
+                break
+        return test
 
 
     # SERVICES methods
@@ -153,34 +130,24 @@ class processKB:
         try:
             # just for testing cascade of new nodes:
 
+            self.start_services()
+
             time.sleep(3)
             print('first adds')
-
-            ''' basic tests ( classes )
-            self.add([[ 'self', 'rdf:type', 'robot'],['robot','rdfs:subClassOf','Agent']],DEFAULT_MODEL,0.7)
-            self.add([['Agent','rdfs:subClassOf','humanoide'],['human','rdfs:subClassOf','animals']],DEFAULT_MODEL,0.5)
-            self.add([['robot','owl:equivalentClass','machine'],['machine','owl:equivalentClass','automate']],DEFAULT_MODEL,0.2)
-            '''
-            '''
-            basic tests ( mutual knowledge )
-            self.add([['zoro', 'rdf:type', 'Agent'], ['vincent', 'rdf:type', 'Agent'], ['pierre', 'rdf:type', 'Agent'], ['marc', 'rdf:type', 'Agent']],DEFAULT_MODEL,0.5)
-            self.add_specific([['zoro', 'knows', 'vincent'],['marc', 'knows', 'pierre']],DEFAULT_MODEL,0.5)
-            self.add([['superman', 'rdf:type', 'Agent']],DEFAULT_MODEL,0.5)
-            '''
 
             story = False
 
             if story:
 
                 ''' Gruffalo background '''
-                self.add_common([[ 'mouse', 'rdf:type', 'Agent'],['fox','rdf:type','Agent']],DEFAULT_MODEL,1)
-                self.add_common([[ 'owl', 'rdf:type', 'Agent'],['snake','rdf:type','Agent']],DEFAULT_MODEL,1)
+                self.add_common([[ 'mouse', 'rdf:type', 'Agent'],['fox','rdf:type','Agent']],[DEFAULT_MODEL],1)
+                self.add_common([[ 'owl', 'rdf:type', 'Agent'],['snake','rdf:type','Agent']],[DEFAULT_MODEL],1)
 
                 ''' Gruffalo story '''
                 ''' ch.1 '''
 
                 # narator speaks :
-                model = DEFAULT_MODEL
+                model = [DEFAULT_MODEL]
 
                 self.add([[ 'mouse', 'sees', 'fox']],model,1)
                 self.add([[ 'fox', 'sees', 'mouse']],model,1)
@@ -189,7 +156,7 @@ class processKB:
                 model = ['M_myself:K_fox']
 
                 self.add([[ 'self', 'wants_to_eat', 'mouse']],model,1)
-                self.add([[ 'fox', 'wants_to_eat', 'mouse']],DEFAULT_MODEL,1)
+                self.add([[ 'fox', 'wants_to_eat', 'mouse']],[DEFAULT_MODEL],1)
 
                 # mouse speaks to the fox :
                 idiot_model = ['M_myself:K_fox', 'M_myself:M_mouse:K_fox','M_myself:M_fox:K_mouse']
@@ -197,11 +164,11 @@ class processKB:
 
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],idiot_model,0.8)
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],[DEFAULT_MODEL],0.5)
 
                 # narator and mouse see that fox is scared:
                 self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],smart_model,0.8)
-                self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],DEFAULT_MODEL,0.8)
+                self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],[DEFAULT_MODEL],0.8)
 
                 time.sleep(10)
 
@@ -214,7 +181,7 @@ class processKB:
                 ''' ch.2 '''
 
                 # narator :
-                model = DEFAULT_MODEL
+                model = [DEFAULT_MODEL]
 
                 self.add([[ 'mouse', 'sees', 'owl']],model,1)
                 self.add([[ 'owl', 'sees', 'mouse']],model,1)
@@ -223,7 +190,7 @@ class processKB:
                 model = ['M_myself:K_owl']
 
                 self.add([[ 'owl', 'wants_to_eat', 'mouse']],model,1)
-                self.add([[ 'owl', 'wants_to_eat', 'mouse']],DEFAULT_MODEL,1)
+                self.add([[ 'owl', 'wants_to_eat', 'mouse']],[DEFAULT_MODEL],1)
 
                 # mouse speaks to the owl :
                 idiot_model = ['M_myself:K_owl', 'M_myself:M_mouse:K_owl','M_myself:M_owl:K_mouse']
@@ -231,11 +198,11 @@ class processKB:
 
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],idiot_model,0.8)
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],[DEFAULT_MODEL],0.5)
 
                 # narator and mouse see that owl is scared:
                 self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],smart_model,0.8)
-                self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],DEFAULT_MODEL,0.8)
+                self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],[DEFAULT_MODEL],0.8)
 
                 time.sleep(10)
 
@@ -248,7 +215,7 @@ class processKB:
                 ''' ch.3 '''
 
                 # narator :
-                model = DEFAULT_MODEL
+                model = [DEFAULT_MODEL]
 
                 self.add([[ 'mouse', 'sees', 'snake']],model,1)
                 self.add([[ 'snake', 'sees', 'mouse']],model,1)
@@ -257,7 +224,7 @@ class processKB:
                 model = ['M_myself:K_snake']
 
                 self.add([[ 'snake', 'wants_to_eat', 'mouse']],model,1)
-                self.add([[ 'snake', 'wants_to_eat', 'mouse']],DEFAULT_MODEL,1)
+                self.add([[ 'snake', 'wants_to_eat', 'mouse']],[DEFAULT_MODEL],1)
 
                 # mouse speaks to the snake :
                 idiot_model = ['M_myself:K_snake', 'M_myself:M_mouse:K_snake','M_myself:M_snake:K_mouse']
@@ -265,11 +232,11 @@ class processKB:
 
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],idiot_model,0.9)
                 self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],smart_model,0)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],DEFAULT_MODEL,0.5)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],[DEFAULT_MODEL],0.5)
 
                 # narator and mouse see that snake is scared:
                 self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],smart_model,0.9)
-                self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],DEFAULT_MODEL,0.9)
+                self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],[DEFAULT_MODEL],0.9)
 
                 time.sleep(10)
 
@@ -282,7 +249,7 @@ class processKB:
                 ''' ch.4 '''
 
                 # narator :
-                model = DEFAULT_MODEL
+                model = [DEFAULT_MODEL]
 
                 self.add([[ 'mouse', 'sees', 'gruffalo']],model,1)
                 self.add([[ 'gruffalo', 'sees', 'mouse']],model,1)
@@ -314,7 +281,7 @@ class processKB:
                 ''' ch.5 '''
 
                 # narator :
-                model = DEFAULT_MODEL
+                model = [DEFAULT_MODEL]
 
                 self.add([[ 'gruffalo', 'sees', 'snake']],model,1)
                 self.add([[ 'gruffalo', 'sees', 'owl']],model,1)
@@ -337,8 +304,8 @@ class processKB:
 
             else:
 
-                self.add([[ 'sally', 'rdf:type', 'Agent'],['anne','rdf:type','Agent']],DEFAULT_MODEL,1)
-                self.add([[ 'Agent', 'is', 'happy']],DEFAULT_MODEL,1)
+                self.add([[ 'sally', 'rdf:type', 'Agent'],['anne','rdf:type','Agent']],[DEFAULT_MODEL],1)
+                self.add([[ 'Agent', 'is', 'happy']],[DEFAULT_MODEL],1)
 
                 model = ['M_myself:K_sally','M_myself:K_anne','K_myself']
 
@@ -374,6 +341,7 @@ if __name__=='__main__':
     console.setFormatter(formatter)
     logger.addHandler(console)
 
-    process = processKB()
+    kb = kb.KB()
+    process = processKB(kb)
 
     process()
