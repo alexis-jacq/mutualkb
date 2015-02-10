@@ -172,9 +172,9 @@ class Reasoner():
 
     # ontologic keywords :
     SYMMETRIC_PREDICATES = {"owl:differentFrom", "owl:sameAs", "owl:disjointWith", 'owl:equivalentClass'}
-    INHERITANCE_PREDICATES = {"rdf:subclassof"}
+    INHERITANCE_PREDICATES = {"rdfs:subClassOf"}
     OCCURENCE_PREDICATES = {"rdf:type"}
-    EQUIVALENC_PREDICATES = {"owl:equivalentclasses"}
+    EQUIVALENC_PREDICATES = {"owl:equivalentClass"}
     ONTOLOGIC_PREDICATES = SYMMETRIC_PREDICATES|INHERITANCE_PREDICATES|OCCURENCE_PREDICATES|EQUIVALENC_PREDICATES
 
     # mutual modeling keywords :
@@ -268,12 +268,12 @@ class Reasoner():
                 # get all NON ONTOLOGIC !!!!! properies of the class:
                 active_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
                                     '''SELECT predicate, object, trust FROM %s
-                                    WHERE subject="%s" AND model="%s" AND predicate NOT IN ("%s")'''
+                                    WHERE subject="%s" AND model="%s" AND predicate NOT IN ('%s')'''
                                     % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
 
                 passive_properties = {(row[0], row[1], row[2]) for row in self.db.execute(
                                     '''SELECT subject, predicate, trust FROM %s
-                                    WHERE object="%s" AND model="%s" AND predicate NOT IN ("%s")'''
+                                    WHERE object="%s" AND model="%s" AND predicate NOT IN ('%s')'''
                                     % (TABLENAME, name, model,"', '".join(self.ONTOLOGIC_PREDICATES)))}
 
 
@@ -654,7 +654,7 @@ class Reasoner():
         self.shareddb.executemany('''INSERT OR IGNORE INTO %s
              (subject, predicate, object, model, id)
              VALUES (?, ?, ?, ?, ?)''' % TABLENAME, nodes) 
-        self.shareddb.executemany('''UPDATE %s SET infered=1 WHERE id=?''' % TABLENAME, ids)
+        #self.shareddb.executemany('''UPDATE %s SET infered=1 WHERE id=?''' % TABLENAME, ids)
         # after this, all the infered nodes (reached by reason) are set with 'infered'=1 (default value)
 
         # update the trust just for the infered nodes

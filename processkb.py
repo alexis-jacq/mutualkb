@@ -304,6 +304,21 @@ class processKB:
 
             else:
 
+                self.add([['snake', 'rdf:type', 'Reptile']],0.7)
+                self.add([['Reptile', 'rdfs:subClassOf', 'Animal']],1.0)
+                self.add([['Animal', 'rdfs:subClassOf', 'Alive']],0.4)
+
+
+
+                '''
+                self.add([['myself', 'rdf:type', 'Robot']],0.7)
+                self.add([['Robot', 'owl:equivalentClass', 'Machine']],1.0)
+                self.add([['Machine', 'owl:equivalentClass', 'Automaton']],0.4)
+                self.add([['Nao','rdfs:subClassOf', 'Automaton']],0.8)
+                #self.stop_services()
+                
+                '''
+                '''
                 self.add([[ 'sally', 'rdf:type', 'Agent'],['anne','rdf:type','Agent']],[DEFAULT_MODEL],1)
                 self.add([[ 'Agent', 'is', 'happy']],[DEFAULT_MODEL],1)
 
@@ -315,7 +330,7 @@ class processKB:
 
                 self.add([['ball','inside','box1']],model,0)
                 self.add([['ball','inside','box2']],model,1)
-
+                '''
 
 
             while True:

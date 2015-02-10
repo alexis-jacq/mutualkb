@@ -10,7 +10,7 @@ from minimalkb import __version__
 from Queue import Empty
 
 DEFAULT_MODEL = processkb.DEFAULT_MODEL
-REASONING_DELAY = 2.5
+REASONING_DELAY = 3
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -114,8 +114,6 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.stop_services()
 
         # check existances
-        #self.assertTrue([['snake', 'rdf:type', 'Alive']] in self.pkb)
-        self.assertTrue([['snake', 'rdf:type', 'Animal']] in self.pkb)
         self.assertTrue([['snake', 'rdf:type', 'Animal'],['snake', 'rdf:type', 'Alive']] in self.pkb)
         self.assertTrue([['Reptile', 'rdfs:subClassOf', 'Alive']] in self.pkb)
         self.assertFalse([['Reptile', 'rdf:type', 'Alive']] in self.pkb)
@@ -125,23 +123,38 @@ class TestSequenceFunctions(unittest.TestCase):
         # check trust-value propagations
         t1 = self.kb.get_trust('snakerdf:typeAnimalK_myself')
         t2 = self.kb.get_trust('snakerdf:typeAliveK_myself')
-        t3 = self.kb.get_trust('Reptilerdfs:subClassOfK_myself')
+        t3 = self.kb.get_trust('Reptilerdfs:subClassOfAliveK_myself')
         self.assertTrue(t1==0.7)
         self.assertTrue(t2==0.5)
         self.assertTrue(t3==0.5)
 
+    def test_ontologic_equivalents(self):
 
+        self.kb.clear()
+        self.pkb.add([['myself', 'rdf:type', 'Robot']],0.7)
+        self.pkb.add([['Robot', 'owl:equivalentClass', 'Machine']],1.0)
+        self.pkb.add([['Machine', 'owl:equivalentClass', 'Automaton']],0.4)
+        self.pkb.add([['Nao','rdfs:subClassOf', 'Automaton']],0.8)
 
-'''
-    def test_equivalent_classes_transitivity(self):
-        self.kb += 'myself rdf:type Robot'
-        self.kb += ['Robot owl:equivalentClass Machine', 'Machine owl:equivalentClass Automaton']
-        self.kb += 'PR2 rdfs:subClassOf Automaton'
+        self.pkb.start_services()
         time.sleep(REASONING_DELAY)
-        self.assertTrue('Robot owl:equivalentClass Automaton' in self.kb)
-        self.assertItemsEqual(self.kb.classesof("myself"), [u'Robot', u'Machine', u'Automaton'])
-        self.assertTrue('PR2 rdfs:subClassOf Robot' in self.kb)
-'''
+        self.pkb.stop_services()
+
+        # check existances
+        self.assertTrue([['Robot', 'owl:equivalentClass', 'Automaton']] in self.pkb)
+        self.assertTrue([['Nao', 'rdfs:subClassOf', 'Robot']] in self.pkb)
+        self.assertTrue([['myself','rdf:type', 'Automaton']] in self.pkb)
+        self.assertFalse([['myself', 'rdf:type', 'Nao']] in self.pkb)
+        self.assertFalse([['Nao', 'owl:equivalentClass', 'Robot']] in self.pkb)
+
+        # check trust-value propagations
+        t1 = self.kb.get_trust('Robotowl:equivalentClassAutomatonK_myself')
+        t2 = self.kb.get_trust('Naordfs:subClassOfRobotK_myself')
+        t3 = self.kb.get_trust('myselfrdf:typeAutomatonK_myself')
+        self.assertTrue(t1==0.5)
+        self.assertTrue(t2==0.5)
+        self.assertTrue(t3==0.5)
+
 
 if __name__ == '__main__':
 

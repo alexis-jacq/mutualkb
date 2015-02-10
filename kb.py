@@ -188,8 +188,11 @@ class KB:
             return True
 
     def get_trust(self, node_id):
-        trust = self.conn.execute('''SELECT trust FROM %s WHERE id="%s" '''%(TABLENAME, node_id))
-        return trust.fetchone()[0]
+        try:
+            trust = self.conn.execute('''SELECT trust FROM %s WHERE id="%s" '''%(TABLENAME, node_id))
+            return trust.fetchone()[0]
+        except sqlite3.OperationalError:
+            return None
 
 
     def contains(self, stmts, model):
