@@ -179,7 +179,9 @@ class Reasoner():
 
     # mutual modeling keywords :
     VISUAL_KNOWLEDGE_PREDICATES = {"sees","imagines","looks"} # imply a visual knowledge of the object
-    GENERAL_KNOWLEDGE_PREDICATES = {"knows","conceives","fears","loves","likes","prefers","dislikes","hates"} # imply a general knowledge of the object
+    GENERAL_KNOWLEDGE_PREDICATES = {"knows", "conceives", "fears", "loves", "likes", "prefers", "dislies", "hates"} # imply a general knowledge of the object
+    VISIBLE_PREDICATES = {"sees", "looks", "fears", "is", "shows", "dances", "says", "sings", "smiles_to", "smiles"} # given by visual knowledge
+    OBTAINABLE_GENERAL_PREDICATES = {"knows", "conceives", "fears", "loves", "likes", "prefers", "dislikes", "hates"}|ONTOLOGIC_PREDICATES # given by general knowledge
 
     # contrary conflict keywords :
     CONTRARIES = {("equals","differs"), ("owl:differentFrom","owl:sameAs"), ('owl:equivalentClass','owl:differentClass'),
@@ -375,8 +377,6 @@ class Reasoner():
                     (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
                     ''' % (TABLENAME, TABLENAME))}
 
-
-
         return generalModelings, visualModelings, selfModelings
 
 
@@ -423,7 +423,8 @@ class Reasoner():
                                                     AND model='%s'
                                                     AND trust>=0.5)
                             OR (predicate='is' AND object='common' AND trust>=0.5) )
-                            AND  modified=1''' % (TABLENAME, model))}
+                            ''' % (TABLENAME, model))}
+                            #AND  modified=1''' % (TABLENAME, model))}
 
                 shared_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
@@ -432,15 +433,17 @@ class Reasoner():
                                                     AND object='shared'
                                                     AND model='%s'
                                                     AND trust>=0.5)
-                            AND  modified=1 ''' % (TABLENAME, model))}
+                            ''' % (TABLENAME, model))}
+                            #AND  modified=1 ''' % (TABLENAME, model))}
 
                 self_description = {(row[0], row[1], row[2]) for row in self.db.execute(
                             '''SELECT DISTINCT predicate, object, trust FROM %s WHERE subject="%s"
-                            AND model="%s" AND modified=1 ''' % (TABLENAME, agent, model))}
+                            AND model="%s" ''' % (TABLENAME, agent, model))}
+                            #AND modified=1 ''' % (TABLENAME, agent, model))}
 
                 # make sure agent is conscious to be an agent :
                 #----------------------------------------------
-                self.newstmts += [('self', 'rdf:type', 'Agent', new_model, llh)]
+                self.newstmts += [(agent, 'rdf:type', 'Agent', new_model, llh)]
 
                 # instill in the agent his supposed knowledge :
                 #----------------------------------------------
@@ -451,8 +454,8 @@ class Reasoner():
 
                         if o=='self':
                             o = model.replace('_',' ').split()[-1]
-                        if o==agent:
-                            o = 'self'
+                        #if o==agent:
+                        #    o = 'self'
 
                         if llh > 0.5:
                             self.newstmts += [(s, p, o, new_model, lh)]
@@ -465,8 +468,8 @@ class Reasoner():
 
                         if o=='self':
                             o = model.replace('_',' ').split()[-1]
-                        if o==agent:
-                            o = 'self'
+                        #if o==agent:
+                        #    o = 'self'
 
                         if llh > 0.5:
                             self.newstmts += [(s, p, o, new_model, lh)]
@@ -479,13 +482,13 @@ class Reasoner():
 
                         if o=='self':
                             o = model.replace('_',' ').split()[-1]
-                        if o==agent:
-                            o = 'self'
+                        #if o==agent:
+                        #    o = 'self'
 
                         if llh > 0.5:
-                            self.newstmts += [('self', p, o, new_model, lh)]
+                            self.newstmts += [(agent, p, o, new_model, lh)]
                         else:
-                            self.newstmts += [('self', p, o, new_model, 0.5)]
+                            self.newstmts += [(agent, p, o, new_model, 0.5)]
 
                 # the modeler knows that the agent is an agent:
                 #----------------------------------------------
@@ -509,8 +512,8 @@ class Reasoner():
                 # agent2 could be the agent of the model or agent1
                 if agent2=='self':
                     agent2 = model.replace('_',' ').split()[-1]
-                if agent2==agent1:
-                    agent2 = 'self'
+                #if agent2==agent1:
+                #    agent2 = 'self'
 
                 # get the name of the model for agent1 :
                 #---------------------------------------
@@ -535,11 +538,37 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [('self', 'rdf:type', 'Agent', new_model1, llh)]
+                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, llh)]
 
                     # transfere to agent1 VISIBLE information about agent2:
                     #------------------------------------------------------
-                    '''TO DO'''
+                    visible_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
+                            '''SELECT DISTINCT subject, predicate, object, trust FROM %s
+                            WHERE subject = '%s' AND model = '%s' AND (
+                            id IN (
+                            SELECT DISTINCT subject WHERE predicate='is'
+                                                    AND object='visible'
+                                                    AND trust>=0.5)
+                            OR (predicate IN ('%s')))
+                            ''' % (TABLENAME, agent2, model, "', '".join(self.VISIBLE_PREDICATES)))} # (not sure about utility of trust>0.5)
+
+                    # instill in agent1 his supposed knowledge about agent2 :
+                    #--------------------------------------------------------
+                    if visible_ground:
+                    # things about agent2 that the robot assums that is known by agent1 because of
+                    # the visibility of the agent2
+                        for s,p,o,lh in visible_ground:
+
+                            if o=='self':
+                                o = model.replace('_',' ').split()[-1]
+                            #if o==agent1:
+                            #    o = 'self'
+
+                            if llh > 0.5:
+                                self.newstmts += [(s, p, o, new_model, lh)]
+                            else:
+                                self.newstmts += [(s, p, o, new_model, 0.5)] 
+
 
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
@@ -564,8 +593,8 @@ class Reasoner():
                 # agent2 could be the agent of the model or agent1
                 if agent2=='self':
                     agent2 = model.replace('_',' ').split()[-1]
-                if agent2==agent1:
-                    agent2 = 'self'
+                #if agent2==agent1:
+                #    agent2 = 'self'
 
                 # get the name of the model for agent1 :
                 #---------------------------------------
@@ -590,7 +619,7 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [('self', 'rdf:type', 'Agent', new_model1, llh)]
+                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, llh)]
 
                     # transfere to agent1 GENERAL information about agent2:
                     #------------------------------------------------------
@@ -605,7 +634,7 @@ class Reasoner():
     # CONTRARY/CONFLICTS methods :
     #=============================
 
-    '''TO DO'''
+    # TODO
 
 
 
