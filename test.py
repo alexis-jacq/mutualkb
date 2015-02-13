@@ -98,6 +98,8 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue([[ 'mouse', 'sees', 'snake']] in self.pkb)
         self.assertFalse([[ 'fox', 'sees', 'snake']] in self.pkb)
 
+        # TODO : play with different models
+
 
     # REASONER TEST
     #==============
@@ -155,6 +157,60 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(t2==0.5)
         self.assertTrue(t3==0.5)
 
+
+    def test_properties_inheritance(self):
+
+        self.kb.clear()
+        self.pkb.add([['toutou', 'rdf:type', 'Dog']],0.7)
+        self.pkb.add([['Dog', 'likes', 'eating']],8.0)
+        self.pkb.add([['eating','rdf:type', 'Action']],0.8)
+
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY)
+        self.pkb.stop_services()
+
+        # check existances
+        self.assertTrue([['toutou', 'likes', 'eating']] in self.pkb)
+        self.assertFalse([['toutou', 'likes', 'Action']] in self.pkb)
+        self.assertFalse([['toutou','rdf:type', 'Action']] in self.pkb)
+        self.assertFalse([['Dog', 'rdf:type', 'Action']] in self.pkb)
+
+        # check trust-value propagations
+        t1 = self.kb.get_trust('toutoulikeseatingK_myself')
+        self.assertTrue(t1==0.7)
+
+        # TODO : try also for passive properties : 
+        # toutou rdftype dog
+        # everybody love dog
+        # then everybody love toutou
+
+
+    # MUTUAL MODELING TEST
+    #=====================
+
+    def test_self_modelings(self):
+
+        self.kb.clear()
+        self.pkb.add([['toto', 'rdf:type', 'Agent'],['tata', 'rdf:type', 'Agent']], 1)
+        self.pkb.add([['toto', 'sees', 'tata']], 0.8)
+        self.pkb.add([['toto', 'is', 'happy']], 0.4)
+        self.pkb.add([['tata', 'is', 'sad']], 0.7)
+
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY)
+        self.pkb.stop_services()
+
+        # check existances (differs folowing the models)
+        self.pkb.models = {'M_myself:K_toto'}
+        self.assertTrue([['self', 'rdf:type', 'Agent']] in self.pkb)
+
+    '''
+    def test_visual_modelings(self):
+
+        self.kb.clear()
+        self.kb.add([['toto', 'rdf:type', 'Agent'],['tata', 'rdf:type', 'Agent']], 1)
+        self.kb.add([['toto', 'sees', 'tata']], 0.8)
+    '''
 
 if __name__ == '__main__':
 
