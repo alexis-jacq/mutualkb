@@ -665,13 +665,14 @@ class Reasoner():
             trust = llh
             if (lh-llh)*(lh-llh)==1:
                 pass
+            elif lh==llh: # if nothing new dont care (TODO : better comment or find other hack)
+                pass
             else:
                 trust = lh*llh/( lh*llh + (1-lh)*(1-llh) )
             self.shareddb.execute(''' UPDATE %s SET trust=%f
-                                WHERE id=? AND infered=1''' % (TABLENAME, trust), [node])
-            # not so easy :
-            #self.shareddb.execute(''' UPDATE %s SET modified=1
-            #                    WHERE id=? AND infered=1''' % (TABLENAME), [node])
+                                WHERE id=?''' % (TABLENAME, trust), [node])
+            #self.shareddb.execute(''' UPDATE %s SET trust=%f
+            #                    WHERE id=? AND infered=1''' % (TABLENAME, trust), [node])
 
         # then inference is done, so 'infered'=0 for all nodes
         self.shareddb.execute(''' UPDATE %s SET infered=0 
