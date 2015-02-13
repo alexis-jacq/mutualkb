@@ -544,13 +544,17 @@ class Reasoner():
                     #------------------------------------------------------
                     visible_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
-                            WHERE subject = '%s' AND model = '%s' AND (
+                            WHERE (subject = '%s'AND model = '%s' AND (
                             id IN (
-                            SELECT DISTINCT subject WHERE predicate='is'
+                            SELECT DISTINCT subject FROM %s WHERE predicate='is'
                                                     AND object='visible'
                                                     AND trust>=0.5)
-                            OR (predicate IN ('%s')))
-                            ''' % (TABLENAME, agent2, model, "', '".join(self.VISIBLE_PREDICATES)))} # (not sure about utility of trust>0.5)
+                            OR (predicate IN ('%s'))))
+                            OR (subject IN (
+                            SELECT id FROM %s WHERE subject='%s') AND predicate='is' AND object='visible')
+                            ''' % (TABLENAME, agent2, model, TABLENAME, "', '".join(self.VISIBLE_PREDICATES), TABLENAME, agent2))} # (not sure about utility of trust>0.5)
+
+                    # ou alors plus simple et elegant : pour tout les mecs tel que is visible, on l'ajoute aux visible_predicates... ou bien les deux..
 
                     # instill in agent1 his supposed knowledge about agent2 :
                     #--------------------------------------------------------
@@ -695,7 +699,7 @@ class Reasoner():
             if (lh-llh)*(lh-llh)==1:
                 pass
             elif lh==llh: # if nothing new dont care (TODO : better comment or find other hack)
-                pass
+                pass      # want to still take it into account if infered = 1 => need to solve this problem !
             else:
                 trust = lh*llh/( lh*llh + (1-lh)*(1-llh) )
             self.shareddb.execute(''' UPDATE %s SET trust=%f
