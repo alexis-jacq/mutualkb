@@ -554,7 +554,7 @@ class Reasoner():
                             SELECT id FROM %s WHERE subject='%s') AND predicate='is' AND object='visible')
                             ''' % (TABLENAME, agent2, model, TABLENAME, "', '".join(self.VISIBLE_PREDICATES), TABLENAME, agent2))} # (not sure about utility of trust>0.5)
 
-                    # ou alors plus simple et elegant : pour tout les mecs tel que is visible, on l'ajoute aux visible_predicates... ou bien les deux..
+                    # si neud dy type "predicat is visible -> ajouter predicat aux visible_predicats
 
                     # instill in agent1 his supposed knowledge about agent2 :
                     #--------------------------------------------------------
@@ -625,9 +625,32 @@ class Reasoner():
                     #-------------------------------------------------
                     self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, llh)]
 
-                    # transfere to agent1 GENERAL information about agent2:
+
+                    # transfere to agent1 VISIBLE information about agent2:
                     #------------------------------------------------------
-                    '''TO DO'''
+                    obtainable_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
+                            '''SELECT DISTINCT subject, predicate, object, trust FROM %s
+                            WHERE (subject = '%s'AND model = '%s'
+                            AND predicate IN ('%s')
+                            ''' % (TABLENAME, agent2, model, "', '".join(self.OBTAINABLE_GENERAL_PREDICATES)))}
+
+                    # instill in agent1 his supposed knowledge about agent2 :
+                    #--------------------------------------------------------
+                    if obtainable_ground:
+                    # things about agent2 that the robot assums that is known by agent1 because of
+                    # the visibility of the agent2
+                        for s,p,o,lh in obtainable_ground:
+
+                            if o=='self':
+                                o = model.replace('_',' ').split()[-1]
+                            #if o==agent1:
+                            #    o = 'self'
+
+                            if llh > 0.5:
+                                self.newstmts += [(s, p, o, new_model, lh)]
+                            else:
+                                self.newstmts += [(s, p, o, new_model, 0.5)] 
+
 
                 # the modeler knows that agent1 and agent2 are agents :
                 #------------------------------------------------------
