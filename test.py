@@ -211,21 +211,37 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.add([['tata', 'sees', 'toto']], 0.8)
         self.pkb.add([['toto', 'is', 'happy']], 0.7)
         self.pkb.add([['tata', 'performs', 'something_strange']],0.6)
+        self.pkb.add([['tata', 'likes', 'coffee']],0.4)
         self.pkb.add([['tataperformssomething_strangeK_myself', 'is', 'visible']],0.6)
 
         self.pkb.start_services()
-        time.sleep(REASONING_DELAY*5)
+        time.sleep(REASONING_DELAY*4)
         self.pkb.stop_services()
-        
-        '''
+
         # check existances (differs folowing the models)
         self.pkb.models = {'M_myself:K_toto','M_myself:M_toto:K_tata'}
         self.assertTrue([['tata', 'rdf:type', 'Agent']] in self.pkb)
         self.assertTrue([['tata', 'is', 'sad']] in self.pkb)
         self.assertTrue([['tata', 'performs', 'something_strange']] in self.pkb)
 
+        self.pkb.models = {'M_myself:K_toto'}
+        self.assertFalse([['tata', 'likes', 'coffee']] in self.pkb)
+
+        self.pkb.models = {'M_myself:M_toto:K_tata'}
+        self.assertFalse([['tata', 'likes', 'coffee']] in self.pkb)
+
         self.pkb.models = {'M_myself:K_tata','M_myself:M_tata:K_toto'}
-        '''
+        self.assertTrue([['toto', 'rdf:type', 'Agent']] in self.pkb)
+        self.assertTrue([['toto', 'is', 'happy']] in self.pkb)
+
+        self.pkb.models = {'M_myself:K_tata'}
+        self.assertTrue([['tata', 'likes', 'coffee']] in self.pkb)
+
+        self.pkb.models = {'M_myself:M_tata:K_toto'}
+        self.assertFalse([['tata', 'likes', 'coffee']] in self.pkb)
+
+    def test_general_modeling(self):
+
 
 
 
