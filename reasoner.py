@@ -549,10 +549,10 @@ class Reasoner():
                             SELECT DISTINCT subject FROM %s WHERE predicate='is'
                                                     AND object='visible'
                                                     AND trust>=0.5)
-                            OR (predicate IN ('%s'))))
+                            OR (predicate IN ('%s') and trust>=0.5)))
                             OR (subject IN (
-                            SELECT id FROM %s WHERE subject='%s') AND predicate='is' AND object='visible')
-                            ''' % (TABLENAME, agent2, model, TABLENAME, "', '".join(self.VISIBLE_PREDICATES), TABLENAME, agent2))} # (not sure about utility of trust>0.5)
+                            SELECT id FROM %s WHERE subject='%s') AND predicate='is' AND object='visible' and trust>=0.5)
+                            ''' % (TABLENAME, agent2, model, TABLENAME, "', '".join(self.VISIBLE_PREDICATES), TABLENAME, agent2))}
 
                     # si neud dy type "predicat is visible -> ajouter predicat aux visible_predicats
 
@@ -631,7 +631,7 @@ class Reasoner():
                     obtainable_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
                             WHERE (subject = '%s'AND model = '%s'
-                            AND predicate IN ('%s')
+                            AND predicate IN ('%s') and trust>=0.5
                             ''' % (TABLENAME, agent2, model, "', '".join(self.OBTAINABLE_GENERAL_PREDICATES)))}
 
                     # instill in agent1 his supposed knowledge about agent2 :
