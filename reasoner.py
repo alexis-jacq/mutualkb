@@ -549,7 +549,7 @@ class Reasoner():
                             SELECT DISTINCT subject FROM %s WHERE predicate='is'
                                                     AND object='visible'
                                                     AND trust>=0.5)
-                            OR (predicate IN ('%s') and trust>=0.5)))
+                            OR (predicate IN ('%s'))))
                             OR (subject IN (
                             SELECT id FROM %s WHERE subject='%s') AND predicate='is' AND object='visible' and trust>=0.5)
                             ''' % (TABLENAME, agent2, model, TABLENAME, "', '".join(self.VISIBLE_PREDICATES), TABLENAME, agent2))}
@@ -569,9 +569,11 @@ class Reasoner():
                             #    o = 'self'
 
                             if llh > 0.5:
-                                self.newstmts += [(s, p, o, new_model, lh)]
+                                self.newstmts += [(s, p, o, new_model1, lh)]
+                                self.newstmts += [(s, p, o, new_model2, lh)]
                             else:
-                                self.newstmts += [(s, p, o, new_model, 0.5)] 
+                                self.newstmts += [(s, p, o, new_model1, 0.5)]
+                                self.newstmts += [(s, p, o, new_model2, 0.5)]
 
 
                 # the modeler knows that agent1 and agent2 are agents :
@@ -630,8 +632,8 @@ class Reasoner():
                     #------------------------------------------------------
                     obtainable_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
-                            WHERE (subject = '%s'AND model = '%s'
-                            AND predicate IN ('%s') and trust>=0.5
+                            WHERE subject = '%s'AND model = '%s'
+                            AND predicate IN ('%s')
                             ''' % (TABLENAME, agent2, model, "', '".join(self.OBTAINABLE_GENERAL_PREDICATES)))}
 
                     # instill in agent1 his supposed knowledge about agent2 :
@@ -647,9 +649,11 @@ class Reasoner():
                             #    o = 'self'
 
                             if llh > 0.5:
-                                self.newstmts += [(s, p, o, new_model, lh)]
+                                self.newstmts += [(s, p, o, new_model1, lh)]
+                                self.newstmts += [(s, p, o, new_model2, lh)]
                             else:
-                                self.newstmts += [(s, p, o, new_model, 0.5)] 
+                                self.newstmts += [(s, p, o, new_model1, 0.5)]
+                                self.newstmts += [(s, p, o, new_model2, 0.5)]
 
 
                 # the modeler knows that agent1 and agent2 are agents :

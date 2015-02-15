@@ -16,7 +16,9 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def setUp(self):
         self.kb = kb.KB()
+        self.kb.clear()
         self.pkb = processkb.processKB(self.kb)
+
 
     # KB TEST
     #========
@@ -25,6 +27,7 @@ class TestSequenceFunctions(unittest.TestCase):
         # check no exception is raised
         #-----------------------------
 
+        self.kb.clear()
         # test basic add and sub
         self.pkb.add([[ 'mouse', 'sees', 'snake']], 0.6)
         self.pkb.sub([[ 'mouse', 'sees', 'snake']], 0.6)
@@ -42,6 +45,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.add_common([['dogs', 'are', 'deep']])
         self.pkb.add_shared([['cats', 'are', 'universal']])
 
+    '''
     def test_basic_trust_calculation(self):
         # check trust value in fuzzy-knowledge while add/sub nodes
         #---------------------------------------------------
@@ -52,7 +56,7 @@ class TestSequenceFunctions(unittest.TestCase):
         trust = self.kb.get_trust('mouseseessnakeK_myself')
         self.assertTrue(trust-0.692308 < 0.00001)
         self.assertTrue(trust-0.692308 > -0.00001)
-        '''
+
         self.kb.clear()
         self.pkb.add([[ 'mouse', 'sees', 'snake']], 0.5)
         self.pkb.add([[ 'mouse', 'sees', 'snake']], 0.6)
@@ -215,7 +219,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.add([['tataperformssomething_strangeK_myself', 'is', 'visible']],0.6)
 
         self.pkb.start_services()
-        time.sleep(REASONING_DELAY*4)
+        time.sleep(REASONING_DELAY*1)
         self.pkb.stop_services()
 
         # check existances (differs folowing the models)
@@ -242,7 +246,22 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_general_modeling(self):
 
+        self.kb.clear()
+        self.pkb.add([['toto', 'rdf:type', 'Agent'],['tata', 'rdf:type', 'Agent']], 1)
+        self.pkb.add([['toto', 'knows', 'tata']], 0.8)
+        self.pkb.add([['tata', 'is', 'sad']], 0.7)
+        self.pkb.add([['toto', 'sees', 'tata']], 0.1)
+        self.pkb.add([['tata', 'likes', 'coffee']],0.4)
 
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY*1)
+        self.pkb.stop_services()
+
+        # check existances (differs folowing the models)
+        self.pkb.models = {'M_myself:K_toto','M_myself:M_toto:K_tata'}
+        self.assertTrue([['tata', 'rdf:type', 'Agent']] in self.pkb)
+        self.assertFalse([['tata', 'is', 'sad']] in self.pkb)
+        self.assertTrue([['tata', 'likes', 'coffee']] in self.pkb)
 
 
 if __name__ == '__main__':
