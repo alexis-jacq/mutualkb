@@ -94,6 +94,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(trust-0.0 < 0.00001)
         '''
 
+
     def test_containing(self):
 
         self.kb.clear()
@@ -134,6 +135,8 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(t2==0.5)
         self.assertTrue(t3==0.5)
 
+
+
     def test_ontologic_equivalents(self):
 
         self.kb.clear()
@@ -160,6 +163,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(t1==0.5)
         self.assertTrue(t2==0.5)
         self.assertTrue(t3==0.5)
+
 
 
     def test_properties_inheritance(self):
@@ -192,6 +196,7 @@ class TestSequenceFunctions(unittest.TestCase):
     # MUTUAL MODELING TEST
     #=====================
 
+
     def test_self_modelings(self):
 
         self.kb.clear()
@@ -205,6 +210,8 @@ class TestSequenceFunctions(unittest.TestCase):
         # check existances (differs folowing the models)
         self.pkb.models = {'M_myself:K_toto'}
         self.assertTrue([['toto', 'rdf:type', 'Agent'],['toto', 'is', 'happy']] in self.pkb)
+
+
 
     def test_visual_modelings(self):
 
@@ -244,6 +251,8 @@ class TestSequenceFunctions(unittest.TestCase):
         self.pkb.models = {'M_myself:M_tata:K_toto'}
         self.assertFalse([['tata', 'likes', 'coffee']] in self.pkb)
 
+
+
     def test_general_modeling(self):
 
         self.kb.clear()
@@ -262,6 +271,47 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue([['tata', 'rdf:type', 'Agent']] in self.pkb)
         self.assertFalse([['tata', 'is', 'sad']] in self.pkb)
         self.assertTrue([['tata', 'likes', 'coffee']] in self.pkb)
+
+
+
+    def test_common_ground(self):
+
+        self.kb.clear()
+        self.pkb.add([['toto', 'rdf:type', 'Agent'],['tata', 'rdf:type', 'Agent']], 1)
+        self.pkb.add([['toto', 'knows', 'tata']], 0.8)
+        self.pkb.add([['tata', 'sees', 'toto']],0.6)
+        self.pkb.add_common([['flowers','are','beautiful']],0.7)
+
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY*1)
+        self.pkb.stop_services()
+
+        # check existances (differs folowing the models)
+        self.pkb.models = {'K_myself','M_myself:K_toto','M_myself:M_toto:K_tata','M_myself:K_tata','M_myself:M_tata:K_toto'}
+        self.assertTrue([['flowers','are','beautiful']] in self.pkb)
+        self.pkb.models = {'M_myself:K_toto'}
+        self.assertTrue([['flowersarebeautifulK_myself', 'is','common']] in self.pkb)
+        self.pkb.models = {'M_myself:M_tata:K_toto'}
+        self.assertTrue([['flowersarebeautifulK_myself', 'is','common']] in self.pkb)
+
+
+    def test_shared_ground(self):
+
+        self.kb.clear()
+        self.pkb.add([['toto', 'rdf:type', 'Agent'],['tata', 'rdf:type', 'Agent']], 1)
+        self.pkb.add([['toto', 'knows', 'tata']], 0.8)
+        self.pkb.add([['tata', 'sees', 'toto']],0.6)
+        self.pkb.add_shared([['people','are','asshole']],0.7)
+
+        self.pkb.start_services()
+        time.sleep(REASONING_DELAY*1)
+        self.pkb.stop_services()
+
+        # check existances (differs folowing the models)
+        self.pkb.models = {'K_myself','M_myself:K_toto','M_myself:K_tata'}
+        self.assertTrue([['people','are','asshole']] in self.pkb)
+        self.pkb.models = {'M_myself:M_toto:K_tata','M_myself:M_tata:K_toto'}
+        self.assertFalse([['people','are','asshole']] in self.pkb)
 
 
 if __name__ == '__main__':
