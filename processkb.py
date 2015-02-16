@@ -16,6 +16,7 @@ import kb
 
 DEFAULT_MODEL = 'K_myself'
 THRESHOLD = 0.2
+REASONING_DELAY = 3
 
 class processKB:
 
@@ -130,7 +131,7 @@ class processKB:
         try:
             # just for testing cascade of new nodes:
 
-            self.start_services()
+            #self.start_services()
 
             time.sleep(3)
             print('first adds')
@@ -145,37 +146,56 @@ class processKB:
                 # with the mouse inside the models)
 
                 ''' Gruffalo background '''
-                self.add_common([[ 'mouse', 'rdf:type', 'Agent'],['fox','rdf:type','Agent']],1)
-                self.add_common([[ 'owl', 'rdf:type', 'Agent'],['snake','rdf:type','Agent']],1)
+                self.add([[ 'mouse', 'rdf:type', 'Agent'],['fox','rdf:type','Agent']],1.)
+                #self.add([[ 'owl', 'rdf:type', 'Agent'],['snake','rdf:type','Agent']],1.)
+                #self.add([[ 'fox', 'wants_to_eat', 'mouse'],['owl', 'wants_to_eat', 'mouse'],['snake','wants_to_eat', 'mouse']],0.9)
+                self.models = {'K_myself', 'M_myself:K_fox', 'M_myself:K_mouse'}
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent']],0.3)
+
+                #self.start_services()
+                #time.sleep(REASONING_DELAY)
+                #self.stop_services()
+
 
                 ''' Gruffalo story '''
                 ''' ch.1 '''
 
                 # narator speaks :
-                self.add([[ 'mouse', 'sees', 'fox']],1)
-                self.add([[ 'fox', 'sees', 'mouse']],1)
+                #self.add([[ 'mouse', 'sees', 'fox']],1)
+                #self.add([[ 'fox', 'sees', 'mouse']],1)
 
-                # fox speaks alone :
-                self.models.add('M_myself:K_fox')
-
-                self.add([[ 'self', 'wants_to_eat', 'mouse']],1)
-                self.add([[ 'fox', 'wants_to_eat', 'mouse']],1)
+                #self.start_services()
+                #time.sleep(REASONING_DELAY)
+                #self.stop_services()
 
                 # mouse speaks to the fox :
-                self.models.add('M_myself:K_mouse')
+                self.models = {'M_myself:K_fox'}#,'M_myself:M_fox:K_mouse'}
 
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0.8)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0.5)
+                self.add([['gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0.9)
 
+                self.start_services()
+                time.sleep(REASONING_DELAY)
+                self.stop_services()
+
+                '''
                 # narator and mouse see that fox is scared:
-                self.models.remove('M_myself:K_fox')
+                self.models = {'K_myself', 'M_myself:K_mouse'}
 
-                self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],0.0)
                 self.add([[ 'fox', 'fears', 'mouse'], ['fox', 'fears', 'gruffalo']],0.8)
 
-                time.sleep(10)
+                self.start_services()
+                time.sleep(REASONING_DELAY)
+                self.stop_services()
 
+
+                self.add([[ 'mouse', 'sees', 'fox']],0)
+                self.add([[ 'fox', 'sees', 'mouse']],0)
+
+                self.start_services()
+                time.sleep(REASONING_DELAY)
+                #self.stop_services()
+
+                '''
                 ''' end of ch.1'''
 
                 print('##############')
@@ -183,33 +203,28 @@ class processKB:
                 print('##############')
 
                 ''' ch.2 '''
+                '''
+                self.models = DEFAULT_MODEL
 
-                # narator :
-                self.models.remove('M_myself:K_mouse')
-
+                # narator speaks :
                 self.add([[ 'mouse', 'sees', 'owl']],1)
                 self.add([[ 'owl', 'sees', 'mouse']],1)
 
-                # owl speaks alone :
-                self.models.add('M_myself:K_owl')
+                # mouse speaks to the fox :
+                self.models = {'M_myself:K_owl','M_myself:M_owl:K_mouse'}
 
-                self.add([[ 'owl', 'wants_to_eat', 'mouse']],1)
-                self.add([[ 'owl', 'wants_to_eat', 'mouse']],1)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],0.6)
 
-                # mouse speaks to the owl :
-                self.models.add('M_myself:K_mouse')
-
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],0.8)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'owl']],0)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0.5)
-
-                # narator and mouse see that owl is scared:
-                self.models.remove('M_myself:K_owl')
+                # narator and mouse see that fox is scared:
+                self.models = {'K_myself', 'M_myself:K_mouse'}
 
                 self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],0.8)
-                self.add([[ 'owl', 'fears', 'mouse'], ['owl', 'fears', 'gruffalo']],0.8)
 
-                time.sleep(10)
+                time.sleep(15)
+
+                self.add([[ 'mouse', 'sees', 'owl']],0)
+                self.add([[ 'owl', 'sees', 'mouse']],0)
+                '''
 
                 ''' end of ch.2'''
 
@@ -218,33 +233,28 @@ class processKB:
                 print('##############')
 
                 ''' ch.3 '''
+                '''
+                self.models = DEFAULT_MODEL
 
-                # narator :
-                self.models.remove('M_myself:M_mouse:K_owl')
-
+                # narator speaks :
                 self.add([[ 'mouse', 'sees', 'snake']],1)
                 self.add([[ 'snake', 'sees', 'mouse']],1)
 
-                # snake speaks alone :
-                self.models.add('M_myself:K_snake')
+                # mouse speaks to the fox :
+                self.models = {'M_myself:K_snake','M_myself:M_snake:K_mouse'}
 
-                self.add([[ 'snake', 'wants_to_eat', 'mouse']],1)
-                self.add([[ 'snake', 'wants_to_eat', 'mouse']],1)
+                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],0.6)
 
-                # mouse speaks to the snake :
-                self.models.remove('M_myself:K_mouse')
-                self.models.add('M_myself:M_mouse:K_snake')
+                # narator and mouse see that fox is scared:
+                self.models = {'K_myself', 'M_myself:K_mouse'}
 
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'snake']],0.9)
-                self.add([[ 'gruffalo', 'rdf:type', 'Agent'], ['gruffalo', 'wants_to_eat', 'fox']],0.5)
+                self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],0.8)
 
-                # narator and mouse see that snake is scared:
-                self.models.remove('M_myself:K_snake')
+                time.sleep(15)
 
-                self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],0.9)
-                self.add([[ 'snake', 'fears', 'mouse'], ['snake', 'fears', 'gruffalo']],0.9)
-
-                time.sleep(10)
+                self.add([[ 'mouse', 'sees', 'snake']],0)
+                self.add([[ 'snake', 'sees', 'mouse']],0)
+                '''
 
                 ''' end of ch.3'''
 
@@ -253,32 +263,32 @@ class processKB:
                 print('##############')
 
                 ''' ch.4 '''
+                '''
+                self.models = DEFAULT_MODEL
 
                 # narator :
-                self.models.remove('M_myself:K_mouse')
-
                 self.add([[ 'mouse', 'sees', 'gruffalo']],1)
                 self.add([[ 'gruffalo', 'sees', 'mouse']],1)
 
-                # gruffalo speaks alone :
-                self.models.add('M_myself:K_gruffalo')
+                # gruffalo speaks :
+                self.models = {'K_myself','M_myself:K_mouse'}
 
                 self.add([[ 'gruffalo', 'wants_to_eat', 'mouse']],1)
 
                 # mouse speaks to the gruffalo :
-                self.models.add('M_myself:K_mouse')
+                self.models = {'M_myself:K_gruffalo', 'M_myself:M_mouse:K_gruffalo'}
 
                 self.add([['snake', 'fears', 'mouse']],0.4)
                 self.add([['owl', 'fears', 'mouse']],0.4)
                 self.add([['fox', 'fears', 'mouse']],0.4)
 
-                # everybody knows that gruffalo is not so idiot :
-                self.models.remove('M_myself:K_gruffalo')
+                # gruffalo is not so idiot :
+                self.models = {'K_myself','M_myself:K_mouse'}
 
                 self.add([[ 'gruffalo', 'fears', 'mouse']],0.4)
 
-                time.sleep(10)
-
+                time.sleep(15)
+                '''
                 ''' end of ch.4'''
 
                 print('##############')
@@ -287,25 +297,31 @@ class processKB:
 
                 ''' ch.5 '''
                 '''
-                # narator :
-                self.models.remove('M_myself:K_mouse')
+                self.models = DEFAULT_MODEL
 
+                # narator :
                 self.add([[ 'gruffalo', 'sees', 'snake']],1)
                 self.add([[ 'gruffalo', 'sees', 'owl']],1)
                 self.add([[ 'gruffalo', 'sees', 'fox']],1)
 
+                self.add([[ 'mouse', 'sees', 'snake']],1)
+                self.add([[ 'mouse', 'sees', 'owl']],1)
+                self.add([[ 'mouse', 'sees', 'fox']],1)
+
+                self.add([[ 'snake', 'sees', 'gruffalo']],1)
+                self.add([[ 'owl', 'sees', 'gruffalo']],1)
+                self.add([[ 'fox', 'sees', 'gruffalo']],1)
+
                 # gruffalo and mouse see that other animals are scared :
                 self.models.add('M_myself:K_mouse')
                 self.models.add('M_myself:K_gruffalo')
-                self.models.add('M_myself:M_mouse:K_gruffalo')
-                self.models.add('M_myself:M_gruffalo:K_mouse')
 
                 self.add([['fox', 'fears', '?' ]],0.9)
                 self.add([['owl', 'fears', '?' ]],0.9)
-                self.add([['snake', 'fears', '?' ]],0.9) 
+                self.add([['snake', 'fears', '?' ]],0.9)
                 self.add([[ 'gruffalo', 'fears', 'mouse']],0.9)
 
-                time.sleep(15)
+                time.sleep(20)
                 '''
                 print('##############')
                 print('all history ok !')
