@@ -6,8 +6,7 @@ import unittest
 import time
 import kb
 import processkb
-from minimalkb import __version__
-from Queue import Empty
+from mutualkb import __version__
 
 DEFAULT_MODEL = processkb.DEFAULT_MODEL
 REASONING_DELAY = 3
@@ -320,8 +319,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Test suite for mutualKB.')
 
-#    parser.add_argument('-v', '--version', action='version',
-#            version=version(), help='returns mutualKB version')
+    parser.add_argument('-v', '--version', action='version',
+            version=version(), help='returns mutualKB version')
 
     parser.add_argument('-f', '--failfast', action='store_true',
             help='stops at first failed test')
