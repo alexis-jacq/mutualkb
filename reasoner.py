@@ -370,12 +370,9 @@ class Reasoner():
                     ''' % (TABLENAME, TABLENAME, TABLENAME, "', '".join(self.VISUAL_KNOWLEDGE_PREDICATES)))}
 
             selfModelings = {(row[0], row[1], row[2]) for row in db.execute(
-                    '''SELECT DISTINCT subject, model, trust FROM %s WHERE subject!='self' AND subject in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
-                    ''' % (TABLENAME, TABLENAME))} | {(row[0], row[1], row[2]) for row in db.execute(
-                    '''SELECT DISTINCT object, model, trust FROM %s WHERE object!='self' AND object in 
-                    (SELECT subject FROM %s WHERE (predicate='rdf:type' AND  object='Agent'))
-                    ''' % (TABLENAME, TABLENAME))}
+                    '''SELECT DISTINCT subject, model, trust FROM %s WHERE subject!='self' AND
+                    predicate='rdf:type' AND  object='Agent'
+                    ''' % (TABLENAME))}
 
         return generalModelings, visualModelings, selfModelings
 
@@ -418,22 +415,22 @@ class Reasoner():
                 common_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
                             WHERE ( id IN (
-                            SELECT DISTINCT subject WHERE predicate='is'
+                            SELECT subject FROM %s WHERE predicate='is'
                                                     AND object='common'
                                                     AND model='%s'
                                                     AND trust>=0.5)
                             OR (predicate='is' AND object='common' AND trust>=0.5) )
-                            ''' % (TABLENAME, model))}
+                            ''' % (TABLENAME, TABLENAME, model))}
                             #AND  modified=1''' % (TABLENAME, model))}
 
                 shared_ground = {(row[0], row[1], row[2], row[3]) for row in self.db.execute(
                             '''SELECT DISTINCT subject, predicate, object, trust FROM %s
                             WHERE id IN (
-                            SELECT DISTINCT subject WHERE predicate='is'
+                            SELECT subject FROM %s WHERE predicate='is'
                                                     AND object='shared'
                                                     AND model='%s'
                                                     AND trust>=0.5)
-                            ''' % (TABLENAME, model))}
+                            ''' % (TABLENAME, TABLENAME, model))}
                             #AND  modified=1 ''' % (TABLENAME, model))}
 
                 self_description = {(row[0], row[1], row[2]) for row in self.db.execute(
@@ -441,9 +438,10 @@ class Reasoner():
                             AND model="%s" ''' % (TABLENAME, agent, model))}
                             #AND modified=1 ''' % (TABLENAME, agent, model))}
 
+
                 # make sure agent is conscious to be an agent :
                 #----------------------------------------------
-                self.newstmts += [(agent, 'rdf:type', 'Agent', new_model, llh)]
+                self.newstmts += [(agent, 'rdf:type', 'Agent', new_model, 1)]
 
                 # instill in the agent his supposed knowledge :
                 #----------------------------------------------
@@ -505,7 +503,14 @@ class Reasoner():
             # because it already exists
             if agent1==model.replace('_',' ').split()[-1] or agent1=='self':
                 pass
+
+            # dont pass the mutual modeling level (to not add infinite models):
+            #------------------------------------------------------------------
+            elif len(model.replace(':',' ').split())>MUTUAL_MODELING_ORDER-1:
+                pass
+
             else:
+
 
                 # take care of who is agent2 :
                 #-----------------------------
@@ -538,7 +543,7 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, llh)]
+                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, 1)]
 
                     # transfere to agent1 VISIBLE information about agent2:
                     #------------------------------------------------------
@@ -592,7 +597,14 @@ class Reasoner():
             # because it already exists
             if agent1==model.replace('_',' ').split()[-1] or agent1=='self':
                 pass
+
+            # dont pass the mutual modeling level (to not add infinite models):
+            #------------------------------------------------------------------
+            elif len(model.replace(':',' ').split())>MUTUAL_MODELING_ORDER-1:
+                pass
+
             else:
+
 
                 # take care of who is agent2 :
                 #-----------------------------
@@ -625,7 +637,7 @@ class Reasoner():
 
                     # agent1 knows agent2 knows it is itself an agent:
                     #-------------------------------------------------
-                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, llh)]
+                    self.newstmts += [(agent2, 'rdf:type', 'Agent', new_model1, 1)]
 
 
                     # transfere to agent1 VISIBLE information about agent2:
