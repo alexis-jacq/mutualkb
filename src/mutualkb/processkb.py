@@ -107,7 +107,6 @@ class processKB:
                 break
         return test
 
-
     # SERVICES methods
     #-----------------------------------------
     def start_services(self, *args):
