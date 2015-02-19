@@ -3,7 +3,6 @@ logger = logging.getLogger('mylog')
 DEBUG_LEVEL=logging.DEBUG
 
 import sqlite3
-import numpy
 
 KBNAME = 'kb.db'
 TABLENAME = 'nodes'
@@ -97,7 +96,7 @@ class KB:
                 hold_llh = cursor.fetchone()[0]
             except TypeError:
                 hold_llh = 0
-            matter = numpy.absolute(llh-hold_llh)
+            matter = abs(llh-hold_llh)
             self.conn.executemany('''UPDATE %s SET matter='%f' WHERE id=?''' % (TABLENAME, matter), ids)
 
         nodes = [[ s, p, o, model, 0, "%s%s%s%s"%(s,p,o, model) ] for s,p,o in stmts]
@@ -146,35 +145,44 @@ class KB:
 
 
     def get_attractive_nodes(self,threshold):
-       nodes = {(row[0], row[1]) for row in self.conn.execute('''SELECT id, matter FROM %s WHERE matter>%f''' %(TABLENAME, threshold))}
-       return nodes
+        nodes = {(row[0], row[1]) for row in self.conn.execute('''SELECT id, matter FROM %s WHERE matter>%f''' %(TABLENAME, threshold))}
+        return nodes
+
+    def get_actives_nodes(self):
+        nodes = {(row[0], row[1]) for row in self.conn.execute('''SELECT id, active FROM %s WHERE active>0''' %(TABLENAME))}
+        return nodes
+
+    def get_thought(self):
+        inThought = {(row[0], row[1], row[2], row[3], row[4], row[5]) for row in self.conn.execute(
+                    '''SELECT subject, predicate, object, trust, model, active FROM %s WHERE active>0''' %(TABLENAME))}
+        return inThought
 
     def fire(self, node_id, fire_time):
-       ''' actives the selected nodes'''
-       self.wait_turn()
-       self.conn.execute('''UPDATE %s SET active = %i WHERE id=?''' % (TABLENAME, fire_time), (node_id,))
-       self.conn.commit()
-       #time.sleep(1/THOUGHT_RATE)
+        ''' actives the selected nodes'''
+        self.wait_turn()
+        self.conn.execute('''UPDATE %s SET active = %i WHERE id=?''' % (TABLENAME, fire_time), (node_id,))
+        self.conn.commit()
+        #time.sleep(1/THOUGHT_RATE)
 
     def clock(self):
-       ''' update the time each node keeps firing '''
-       self.wait_turn()
-       self.conn.execute('''UPDATE %s SET active = (SELECT active)-1 WHERE active>0''' % TABLENAME)
-       self.conn.commit()
+        ''' update the time each node keeps firing '''
+        self.wait_turn()
+        self.conn.execute('''UPDATE %s SET active = (SELECT active)-1 WHERE active>0''' % TABLENAME)
+        self.conn.commit()
 
     def douse(self):
-       ''' disactives the time-out nodes '''
-       self.wait_turn()
-       self.conn.execute('''UPDATE %s SET matter=0 WHERE active>0.1 ''' % TABLENAME)
-       self.conn.commit()
+        ''' disactives the time-out nodes '''
+        self.wait_turn()
+        self.conn.execute('''UPDATE %s SET matter=0 WHERE active>0.1 ''' % TABLENAME)
+        self.conn.commit()
 
     def kill(self, node_id):
-       ''' removes the selected nodes '''
-       self.wait_turn()
-       self.conn.execute('''DELETE FROM %s WHERE id=?''' % TABLENAME, (node_id,))
-       self.conn.commit()
+        ''' removes the selected nodes '''
+        self.wait_turn()
+        self.conn.execute('''DELETE FROM %s WHERE id=?''' % TABLENAME, (node_id,))
+        self.conn.commit()
 
-    # TEST methods
+        # TEST methods
     #---------------------------------
 
     def isUmpty(self):

@@ -49,7 +49,7 @@ class Dynamic:
             if next_event not in self.events:
                 self.events[next_event] = {next_event: 0*random.random()/100}
 
-            current_events = kb.get_fired_nodes()
+            current_events = kb.get_actives_nodes()
 
             if current_events:
 
@@ -79,8 +79,10 @@ class Dynamic:
             distribution = self.events[self.think].items()
             next_think = random_pull(distribution)
             self.think = next_think
+            kb.fire(self.think, FIRE_TIME)
         else:
             self.think = next_event
+            kb.fire(self.think, FIRE_TIME)
 
 
 dynamic = Dynamic()
@@ -97,7 +99,7 @@ def counts(kb):
         ''' si new event --> update'''
         if nodes:
             dynamic.update(kb, nodes)
-            show_dynamic()
+            #show_dynamic()
 
         else:
             # deterministic :
@@ -132,4 +134,4 @@ def thought_start(kb):
 def thought_stop():
     global END
     END = True
-    show_dynamic()
+    #show_dynamic()
